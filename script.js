@@ -2,16 +2,89 @@ const boardEl = document.getElementById('board');
 const statusEl = document.getElementById('status');
 const resetBtn = document.getElementById('resetBtn');
 const flipBtn = document.getElementById('flipBtn');
+const whiteTimerEl = document.getElementById('whiteTimer');
+const blackTimerEl = document.getElementById('blackTimer');
+
+const INITIAL_TIME_SECONDS = 300;
 
 let game = new Chess();
 let boardFlipped = false;
 let selectedSquare = null;
+
+let whiteTime = INITIAL_TIME_SECONDS;
+let blackTime = INITIAL_TIME_SECONDS;
+let activeColor = 'w';
+let timerStopped = true;
+let lastTick = null;
+let timerHandle = null;
 
 // Unicode chess pieces
 const piecesMap = {
     'p': '♟', 'n': '♞', 'b': '♝', 'r': '♜', 'q': '♛', 'k': '♚',
     'P': '♙', 'N': '♘', 'B': '♗', 'R': '♖', 'Q': '♕', 'K': '♔'
 };
+
+function formatTime(totalSeconds) {
+    const minutes = Math.floor(Math.max(0, Math.floor(totalSeconds)) / 60);
+    const seconds = Math.floor(Math.max(0, totalSeconds)) % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+function updateTimerDisplay() {
+    whiteTimerEl.textContent = formatTime(whiteTime);
+    blackTimerEl.textContent = formatTime(blackTime);
+    whiteTimerEl.classList.toggle('active', activeColor === 'w' && !timerStopped);
+    blackTimerEl.classList.toggle('active', activeColor === 'b' && !timerStopped);
+}
+
+function startTimer() {
+    if (timerHandle) return;
+    timerStopped = false;
+    lastTick = performance.now();
+    timerHandle = setInterval(() => {
+        const now = performance.now();
+        const deltaMs = now - lastTick;
+        lastTick = now;
+        const deltaSec = deltaMs / 1000;
+
+        if (activeColor === 'w') {
+            whiteTime -= deltaSec;
+        } else {
+            blackTime -= deltaSec;
+        }
+
+        updateTimerDisplay();
+
+        if (whiteTime <= 0 || blackTime <= 0) {
+            stopTimer();
+            return;
+        }
+    }, 100);
+}
+
+function stopTimer() {
+    timerStopped = true;
+    if (timerHandle) {
+        clearInterval(timerHandle);
+        timerHandle = null;
+    }
+    updateTimerDisplay();
+}
+
+function resetTimers() {
+    stopTimer();
+    whiteTime = INITIAL_TIME_SECONDS;
+    blackTime = INITIAL_TIME_SECONDS;
+    activeColor = 'w';
+    updateTimerDisplay();
+}
+
+function switchActiveColor(moveColor) {
+    activeColor = moveColor;
+    if (!timerStopped) {
+        updateTimerDisplay();
+    }
+}
 
 function renderBoard() {
     boardEl.innerHTML = '';
@@ -81,6 +154,7 @@ function handleSquareClick(square) {
             }
             game.move(moveObj);
             selectedSquare = null;
+            switchActiveColor(game.turn());
         } else {
             // If clicking another piece of the same color, select it instead
             const piece = game.get(square);
@@ -119,14 +193,19 @@ function updateStatus() {
 
 resetBtn.addEventListener('click', () => {
     game.reset();
+    resetTimers();
     selectedSquare = null;
     renderBoard();
+    startTimer();
 });
 
 flipBtn.addEventListener('click', () => {
     boardFlipped = !boardFlipped;
     renderBoard();
 });
+
+updateTimerDisplay();
+startTimer();
 
 // Initial render
 renderBoard();
