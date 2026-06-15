@@ -11,25 +11,40 @@
     <div class="bg-blob blob-1"></div>
     <div class="bg-blob blob-2"></div>
     
-    <div class="app-container">
-        <header>
-            <h1>Cosmic Chess</h1>
-            <p class="status" id="status">White to move</p>
-        </header>
+    <div class="layout">
+        <div class="app-container">
+            <header>
+                <h1>Cosmic Chess</h1>
+                <p class="status" id="status">White to move</p>
+            </header>
 
-        <div class="timers">
-            <div class="timer" id="whiteTimer">5:00</div>
-            <div class="timer-divider">vs</div>
-            <div class="timer" id="blackTimer">5:00</div>
+            <div class="timers">
+                <div class="player-info">
+                    <div class="timer" id="whiteTimer">5:00</div>
+                    <div class="captured-pieces" id="whiteCaptured"></div>
+                </div>
+                <div class="timer-divider">vs</div>
+                <div class="player-info">
+                    <div class="timer" id="blackTimer">5:00</div>
+                    <div class="captured-pieces" id="blackCaptured"></div>
+                </div>
+            </div>
+
+            <div class="board-container">
+                <div id="board" class="chess-board"></div>
+            </div>
+
+            <div class="controls">
+                <button id="resetBtn" class="btn">New Game</button>
+                <button id="flipBtn" class="btn secondary">Flip Board</button>
+            </div>
         </div>
 
-        <div class="board-container">
-            <div id="board" class="chess-board"></div>
-        </div>
-
-        <div class="controls">
-            <button id="resetBtn" class="btn">New Game</button>
-            <button id="flipBtn" class="btn secondary">Flip Board</button>
+        <div class="side-panel">
+            <h2>Move History</h2>
+            <div class="history-list" id="historyList">
+                <!-- Move pairs go here -->
+            </div>
         </div>
     </div>
 
