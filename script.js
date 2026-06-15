@@ -51,20 +51,20 @@ function playSound(type) {
     }
 }
 
-// SVG chess pieces from Wikipedia Commons
-const pieceImages = {
-    'p': 'https://upload.wikimedia.org/wikipedia/commons/c/c7/Chess_pdt45.svg',
-    'n': 'https://upload.wikimedia.org/wikipedia/commons/e/ed/Chess_ndt45.svg',
-    'b': 'https://upload.wikimedia.org/wikipedia/commons/9/98/Chess_bdt45.svg',
-    'r': 'https://upload.wikimedia.org/wikipedia/commons/f/ff/Chess_rdt45.svg',
-    'q': 'https://upload.wikimedia.org/wikipedia/commons/4/47/Chess_qdt45.svg',
-    'k': 'https://upload.wikimedia.org/wikipedia/commons/f/f0/Chess_kdt45.svg',
-    'P': 'https://upload.wikimedia.org/wikipedia/commons/4/45/Chess_plt45.svg',
-    'N': 'https://upload.wikimedia.org/wikipedia/commons/7/70/Chess_nlt45.svg',
-    'B': 'https://upload.wikimedia.org/wikipedia/commons/b/b1/Chess_blt45.svg',
-    'R': 'https://upload.wikimedia.org/wikipedia/commons/7/72/Chess_rlt45.svg',
-    'Q': 'https://upload.wikimedia.org/wikipedia/commons/1/15/Chess_qlt45.svg',
-    'K': 'https://upload.wikimedia.org/wikipedia/commons/4/42/Chess_klt45.svg'
+// FontAwesome chess icons
+const pieceIcons = {
+    'p': 'fa-chess-pawn',
+    'n': 'fa-chess-knight',
+    'b': 'fa-chess-bishop',
+    'r': 'fa-chess-rook',
+    'q': 'fa-chess-queen',
+    'k': 'fa-chess-king',
+    'P': 'fa-chess-pawn',
+    'N': 'fa-chess-knight',
+    'B': 'fa-chess-bishop',
+    'R': 'fa-chess-rook',
+    'Q': 'fa-chess-queen',
+    'K': 'fa-chess-king'
 };
 
 function formatTime(totalSeconds) {
@@ -145,15 +145,16 @@ function updateCapturedPieces() {
         }
     });
 
-    const renderPieces = (captures, el) => {
+    const renderPieces = (captures, el, isWhite) => {
         el.innerHTML = captures.map(p => {
-            const url = pieceImages[p];
-            return `<div class="captured-piece" style="background-image: url('${url}');"></div>`;
+            const icon = pieceIcons[p];
+            const colorClass = isWhite ? 'white-piece' : 'black-piece';
+            return `<div class="captured-piece ${colorClass}"><i class="fa-solid ${icon}"></i></div>`;
         }).join('');
     };
 
-    renderPieces(whiteCaptures, whiteCapturedEl);
-    renderPieces(blackCaptures, blackCapturedEl);
+    renderPieces(whiteCaptures, whiteCapturedEl, true);
+    renderPieces(blackCaptures, blackCapturedEl, false);
 }
 
 function updateHistory() {
@@ -219,11 +220,12 @@ function renderBoard() {
             const piece = board[r][f];
             if (piece) {
                 const pieceKey = piece.color === 'w' ? piece.type.toUpperCase() : piece.type;
-                const pieceUrl = pieceImages[pieceKey];
+                const iconClass = pieceIcons[pieceKey];
+                const colorClass = piece.color === 'w' ? 'white-piece' : 'black-piece';
                 
                 const pieceEl = document.createElement('div');
-                pieceEl.className = 'piece';
-                pieceEl.style.backgroundImage = `url('${pieceUrl}')`;
+                pieceEl.className = `piece ${colorClass}`;
+                pieceEl.innerHTML = `<i class="fa-solid ${iconClass}"></i>`;
                 pieceEl.draggable = true;
                 
                 // Drag start
