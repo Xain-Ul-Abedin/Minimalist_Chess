@@ -1,8 +1,8 @@
-# Cosmic Chess 🌌
+# Cozy Chess ☕
 
 ![Status](https://img.shields.io/badge/Status-Active-success)
 
-A beautifully crafted, minimalist chess web application built with a modern, glassmorphic UI and smooth micro-animations. Cosmic Chess elevates the classic game of strategy into a premium, visually stunning experience.
+A beautifully crafted, cozy chess web application built with a warm, relaxing UI and smooth micro-animations. Cozy Chess elevates the classic game of strategy into a peaceful, visually stunning experience.
 
 ## ✨ Features
 - **Glassmorphism Aesthetic**: A sleek, translucent interface with dynamic, floating neon backgrounds.
