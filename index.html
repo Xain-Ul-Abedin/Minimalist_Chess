@@ -17,6 +17,19 @@
                 <p class="status" id="status">White to move</p>
             </header>
 
+            <div class="game-controls">
+                <select id="gameMode" class="input-select">
+                    <option value="human">Play Human (Local)</option>
+                    <option value="ai">Play Computer</option>
+                </select>
+                <select id="aiDifficulty" class="input-select" disabled>
+                    <option value="0">Level 1 (Beginner)</option>
+                    <option value="5">Level 5 (Intermediate)</option>
+                    <option value="10">Level 10 (Expert)</option>
+                    <option value="20">Level 20 (Master)</option>
+                </select>
+            </div>
+
             <div class="timers">
                 <div class="player-info">
                     <div class="timer" id="whiteTimer">5:00</div>
@@ -29,13 +42,21 @@
                 </div>
             </div>
 
-            <div class="board-container">
-                <div id="board" class="chess-board"></div>
+            <div class="board-wrapper">
+                <div class="eval-bar-container" title="Evaluation Bar">
+                    <div class="eval-bar-black"></div>
+                    <div class="eval-bar-white" id="evalBar"></div>
+                </div>
+                <div class="board-container">
+                    <div id="board" class="chess-board"></div>
+                </div>
             </div>
 
             <div class="controls">
                 <button id="resetBtn" class="btn">New Game</button>
                 <button id="flipBtn" class="btn secondary">Flip Board</button>
+                <button id="exportPgnBtn" class="btn secondary"><i class="fa-solid fa-download"></i> PGN</button>
+                <button id="importPgnBtn" class="btn secondary"><i class="fa-solid fa-upload"></i> PGN</button>
             </div>
         </div>
 

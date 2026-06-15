@@ -7,6 +7,9 @@ const blackTimerEl = document.getElementById('blackTimer');
 const whiteCapturedEl = document.getElementById('whiteCaptured');
 const blackCapturedEl = document.getElementById('blackCaptured');
 const historyListEl = document.getElementById('historyList');
+const evalBarEl = document.getElementById('evalBar');
+const gameModeSelect = document.getElementById('gameMode');
+const aiDifficultySelect = document.getElementById('aiDifficulty');
 
 const INITIAL_TIME_SECONDS = 300;
 
@@ -20,6 +23,10 @@ let activeColor = 'w';
 let timerStopped = true;
 let lastTick = null;
 let timerHandle = null;
+
+// AI Engine State
+let engine = null;
+let engineReady = false;
 
 // Audio Context for sound effects
 const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -53,20 +60,96 @@ function playSound(type) {
 
 // FontAwesome chess icons
 const pieceIcons = {
-    'p': 'fa-chess-pawn',
-    'n': 'fa-chess-knight',
-    'b': 'fa-chess-bishop',
-    'r': 'fa-chess-rook',
-    'q': 'fa-chess-queen',
-    'k': 'fa-chess-king',
-    'P': 'fa-chess-pawn',
-    'N': 'fa-chess-knight',
-    'B': 'fa-chess-bishop',
-    'R': 'fa-chess-rook',
-    'Q': 'fa-chess-queen',
-    'K': 'fa-chess-king'
+    'p': 'fa-chess-pawn', 'n': 'fa-chess-knight', 'b': 'fa-chess-bishop',
+    'r': 'fa-chess-rook', 'q': 'fa-chess-queen', 'k': 'fa-chess-king',
+    'P': 'fa-chess-pawn', 'N': 'fa-chess-knight', 'B': 'fa-chess-bishop',
+    'R': 'fa-chess-rook', 'Q': 'fa-chess-queen', 'K': 'fa-chess-king'
 };
 
+// --- Engine Initialization (Stockfish) ---
+function initEngine() {
+    try {
+        const stockfishUrl = 'https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js';
+        fetch(stockfishUrl)
+            .then(r => r.text())
+            .then(text => {
+                const blob = new Blob([text], {type: 'application/javascript'});
+                engine = new Worker(URL.createObjectURL(blob));
+                
+                engine.onmessage = function(event) {
+                    const line = event.data;
+                    
+                    // Handle Engine Move
+                    if (line.includes('bestmove')) {
+                        const move = line.split(' ')[1];
+                        if (move && move !== '(none)') {
+                            const moveObj = {
+                                from: move.substring(0, 2),
+                                to: move.substring(2, 4),
+                                promotion: move.length > 4 ? move.charAt(4) : undefined
+                            };
+                            const res = game.move(moveObj);
+                            if (res) {
+                                playSound(res.captured ? 'capture' : 'move');
+                                switchActiveColor(game.turn());
+                                renderBoard();
+                            }
+                        }
+                    }
+                    
+                    // Handle Evaluation
+                    if (line.includes('score cp')) {
+                        const match = line.match(/score cp (-?\d+)/);
+                        if (match) {
+                            let score = parseInt(match[1]) / 100;
+                            // Ensure score is from White's perspective
+                            if (game.turn() === 'b') score = -score;
+                            updateEvalBar(score);
+                        }
+                    } else if (line.includes('score mate')) {
+                        const match = line.match(/score mate (-?\d+)/);
+                        if (match) {
+                            let mate = parseInt(match[1]);
+                            if (game.turn() === 'b') mate = -mate;
+                            updateEvalBar(mate > 0 ? 100 : -100);
+                        }
+                    }
+                };
+                
+                engine.postMessage('uci');
+                engineReady = true;
+            });
+    } catch(e) {
+        console.error("Stockfish failed to load", e);
+    }
+}
+
+initEngine();
+
+function triggerAi() {
+    const isAi = gameModeSelect.value === 'ai';
+    if (!isAi || !engineReady || game.game_over()) return;
+    
+    // Assume AI plays Black for now
+    if (game.turn() === 'b') {
+        const skill = aiDifficultySelect.value;
+        engine.postMessage(`setoption name Skill Level value ${skill}`);
+        engine.postMessage(`position fen ${game.fen()}`);
+        engine.postMessage('go depth 10'); // Fix depth for web performance
+    } else {
+        // If it's white's turn, we evaluate the position to update the bar
+        engine.postMessage(`position fen ${game.fen()}`);
+        engine.postMessage('go depth 10');
+    }
+}
+
+function updateEvalBar(score) {
+    // Math: Cap at +5 or -5. Map to 0-100%
+    const cappedScore = Math.max(-5, Math.min(5, score));
+    const percentage = 50 + (cappedScore * 10); // 1 point = 10% movement
+    evalBarEl.style.height = `${percentage}%`;
+}
+// --- Timer Logic ---
 function formatTime(totalSeconds) {
     const minutes = Math.floor(Math.max(0, Math.floor(totalSeconds)) / 60);
     const seconds = Math.floor(Math.max(0, totalSeconds)) % 60;
@@ -130,6 +213,7 @@ function switchActiveColor(moveColor) {
     }
 }
 
+// --- UI Logic ---
 function updateCapturedPieces() {
     const history = game.history({ verbose: true });
     let whiteCaptures = [];
@@ -138,9 +222,9 @@ function updateCapturedPieces() {
     history.forEach(move => {
         if (move.captured) {
             if (move.color === 'w') {
-                whiteCaptures.push(move.captured); // White captured a black piece
+                whiteCaptures.push(move.captured);
             } else {
-                blackCaptures.push(move.captured.toUpperCase()); // Black captured a white piece
+                blackCaptures.push(move.captured.toUpperCase());
             }
         }
     });
@@ -183,7 +267,6 @@ function updateHistory() {
         historyListEl.appendChild(row);
     }
     
-    // Auto scroll to bottom
     historyListEl.scrollTop = historyListEl.scrollHeight;
 }
 
@@ -230,6 +313,11 @@ function renderBoard() {
                 
                 // Drag start
                 pieceEl.addEventListener('dragstart', (e) => {
+                    // Prevent human from dragging AI pieces when AI is active
+                    if (gameModeSelect.value === 'ai' && piece.color === 'b') {
+                        e.preventDefault();
+                        return;
+                    }
                     if (piece.color !== game.turn()) {
                         e.preventDefault();
                         return;
@@ -237,7 +325,7 @@ function renderBoard() {
                     selectedSquare = squareId;
                     e.dataTransfer.setData('text/plain', squareId);
                     setTimeout(() => pieceEl.classList.add('dragging'), 0);
-                    renderBoard(); // re-render to show highlights
+                    renderBoard();
                 });
                 
                 pieceEl.addEventListener('dragend', () => {
@@ -247,7 +335,6 @@ function renderBoard() {
                 squareEl.appendChild(pieceEl);
             }
 
-            // Drop zone logic
             squareEl.addEventListener('dragover', (e) => {
                 e.preventDefault();
                 squareEl.classList.add('drag-over');
@@ -264,7 +351,6 @@ function renderBoard() {
                 handleMove(fromSquare, squareId);
             });
 
-            // Click logic
             squareEl.addEventListener('click', () => handleSquareClick(squareId));
             
             boardEl.appendChild(squareEl);
@@ -274,6 +360,9 @@ function renderBoard() {
     updateStatus();
     updateCapturedPieces();
     updateHistory();
+    
+    // Trigger AI evaluation/move if it's the engine's turn
+    triggerAi();
 }
 
 function handleMove(from, to) {
@@ -300,6 +389,9 @@ function handleMove(from, to) {
 
 function handleSquareClick(square) {
     if (game.game_over()) return;
+    
+    // Prevent human clicking for AI color
+    if (gameModeSelect.value === 'ai' && game.turn() === 'b') return;
 
     if (selectedSquare) {
         let moves = game.moves({ square: selectedSquare, verbose: true });
@@ -346,10 +438,12 @@ function updateStatus() {
     statusEl.textContent = status;
 }
 
+// --- Event Listeners ---
 resetBtn.addEventListener('click', () => {
     game.reset();
     resetTimers();
     selectedSquare = null;
+    evalBarEl.style.height = '50%';
     renderBoard();
     startTimer();
 });
@@ -359,6 +453,38 @@ flipBtn.addEventListener('click', () => {
     renderBoard();
 });
 
+gameModeSelect.addEventListener('change', (e) => {
+    aiDifficultySelect.disabled = e.target.value !== 'ai';
+    triggerAi();
+});
+
+aiDifficultySelect.addEventListener('change', () => {
+    triggerAi();
+});
+
+document.getElementById('exportPgnBtn').addEventListener('click', () => {
+    const pgn = game.pgn();
+    const blob = new Blob([pgn], {type: 'text/plain'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'cozy_chess_game.pgn';
+    a.click();
+});
+
+document.getElementById('importPgnBtn').addEventListener('click', () => {
+    const input = prompt("Paste your PGN here:");
+    if (input) {
+        if(game.load_pgn(input)) {
+            resetTimers();
+            renderBoard();
+        } else {
+            alert("Invalid PGN format. Please check and try again.");
+        }
+    }
+});
+
+// Boot
 updateTimerDisplay();
 startTimer();
 renderBoard();
