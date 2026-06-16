@@ -20,59 +20,97 @@
                 <h1>Cozy Chess</h1>
                 <p class="menu-subtitle">A relaxing strategy experience</p>
             </header>
+
+            <!-- Navigation Tabs -->
+            <div class="menu-tabs">
+                <button class="menu-tab active" id="tabPlayBtn"><i class="fa-solid fa-chess"></i> Play Game</button>
+                <button class="menu-tab" id="tabTeachBtn"><i class="fa-solid fa-graduation-cap"></i> Teach Openings</button>
+            </div>
             
             <div class="menu-sections">
-                <!-- Game Mode Selector -->
-                <div class="menu-section">
-                    <h3><i class="fa-solid fa-gamepad"></i> Game Mode</h3>
-                    <div class="mode-options">
-                        <button class="mode-btn active" id="modeLocalBtn" data-mode="human">
-                            <i class="fa-solid fa-users"></i>
-                            <span class="mode-title">Pass & Play</span>
-                            <span class="mode-desc">Play locally with a friend</span>
-                        </button>
-                        <button class="mode-btn" id="modeAiBtn" data-mode="ai">
-                            <i class="fa-solid fa-robot"></i>
-                            <span class="mode-title">VS Stockfish</span>
-                            <span class="mode-desc">Challenge the computer AI</span>
-                        </button>
+                <!-- Play Game Settings Panel -->
+                <div id="panelPlaySettings" class="menu-panel">
+                    <!-- Game Mode Selector -->
+                    <div class="menu-section">
+                        <h3><i class="fa-solid fa-gamepad"></i> Game Mode</h3>
+                        <div class="mode-options">
+                            <button class="mode-btn active" id="modeLocalBtn" data-mode="human">
+                                <i class="fa-solid fa-users"></i>
+                                <span class="mode-title">Pass & Play</span>
+                                <span class="mode-desc">Play locally with a friend</span>
+                            </button>
+                            <button class="mode-btn" id="modeAiBtn" data-mode="ai">
+                                <i class="fa-solid fa-robot"></i>
+                                <span class="mode-title">VS Stockfish</span>
+                                <span class="mode-desc">Challenge the computer AI</span>
+                            </button>
+                        </div>
                     </div>
-                </div>
 
-                <!-- AI Difficulty Level (Hidden by default, shown for VS AI) -->
-                <div class="menu-section hidden" id="menuAiDiffSection">
-                    <h3><i class="fa-solid fa-brain"></i> AI Difficulty</h3>
-                    <div class="custom-select-wrapper">
-                        <select id="menuAiDifficulty" class="input-select-menu">
-                            <option value="0">Level 1 (Beginner - 800 Elo)</option>
-                            <option value="5">Level 5 (Intermediate - 1400 Elo)</option>
-                            <option value="10">Level 10 (Expert - 1800 Elo)</option>
-                            <option value="20">Level 20 (Master - 2500 Elo)</option>
-                        </select>
+                    <!-- AI Difficulty Level -->
+                    <div class="menu-section hidden" id="menuAiDiffSection">
+                        <h3><i class="fa-solid fa-brain"></i> AI Difficulty</h3>
+                        <div class="custom-select-wrapper">
+                            <select id="menuAiDifficulty" class="input-select-menu">
+                                <option value="0">Level 1 (Beginner - 800 Elo)</option>
+                                <option value="5">Level 5 (Intermediate - 1400 Elo)</option>
+                                <option value="10">Level 10 (Expert - 1800 Elo)</option>
+                                <option value="20">Level 20 (Master - 2500 Elo)</option>
+                            </select>
+                        </div>
                     </div>
-                </div>
 
-                <!-- Time Control Selectors -->
-                <div class="menu-section">
-                    <h3><i class="fa-solid fa-clock"></i> Time Control</h3>
-                    <div class="time-grid">
-                        <button class="time-btn active" data-time="300+0">5 Min</button>
-                        <button class="time-btn" data-time="180+2">3+2</button>
-                        <button class="time-btn" data-time="60+0">1 Min</button>
-                        <button class="time-btn" data-time="600+0">10 Min</button>
-                        <button class="time-btn" data-time="1800+0">30 Min</button>
-                        <button class="time-btn" id="timeBtnCustom" data-time="custom">Custom</button>
-                    </div>
-                    
-                    <div id="menuCustomTimePanel" class="menu-custom-time hidden">
-                        <div class="menu-custom-inputs">
-                            <label>Min: <input type="number" id="menuCustomMin" value="5" min="1" max="180" class="input-num-menu"></label>
-                            <label>Inc (s): <input type="number" id="menuCustomInc" value="0" min="0" max="60" class="input-num-menu"></label>
+                    <!-- Time Control Selectors -->
+                    <div class="menu-section">
+                        <h3><i class="fa-solid fa-clock"></i> Time Control</h3>
+                        <div class="time-grid">
+                            <button class="time-btn active" data-time="300+0">5 Min</button>
+                            <button class="time-btn" data-time="180+2">3+2</button>
+                            <button class="time-btn" data-time="60+0">1 Min</button>
+                            <button class="time-btn" data-time="600+0">10 Min</button>
+                            <button class="time-btn" data-time="1800+0">30 Min</button>
+                            <button class="time-btn" id="timeBtnCustom" data-time="custom">Custom</button>
+                        </div>
+                        
+                        <div id="menuCustomTimePanel" class="menu-custom-time hidden">
+                            <div class="menu-custom-inputs">
+                                <label>Min: <input type="number" id="menuCustomMin" value="5" min="1" max="180" class="input-num-menu"></label>
+                                <label>Inc (s): <input type="number" id="menuCustomInc" value="0" min="0" max="60" class="input-num-menu"></label>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Theme Selection -->
+                <!-- Teach Settings Panel (Hidden by default) -->
+                <div id="panelTeachSettings" class="menu-panel hidden">
+                    <div class="menu-section">
+                        <h3><i class="fa-solid fa-book-open"></i> Select an Opening Lesson</h3>
+                        <div class="opening-options-list">
+                            <div class="menu-opening-option active" data-opening="sicilian">
+                                <span class="op-title">Sicilian Defense</span>
+                                <span class="op-moves">1. e4 c5</span>
+                                <p class="op-desc">Black fights for the center aggressively by asymmetry.</p>
+                            </div>
+                            <div class="menu-opening-option" data-opening="ruy">
+                                <span class="op-title">Ruy Lopez (Spanish Opening)</span>
+                                <span class="op-moves">1. e4 e5 2. Nf3 Nc6 3. Bb5</span>
+                                <p class="op-desc">One of the most classical and reliable openings in chess history.</p>
+                            </div>
+                            <div class="menu-opening-option" data-opening="queens">
+                                <span class="op-title">Queen's Gambit</span>
+                                <span class="op-moves">1. d4 d5 2. c4</span>
+                                <p class="op-desc">White sacrifices a wing pawn to gain control of the center.</p>
+                            </div>
+                            <div class="menu-opening-option" data-opening="scholars">
+                                <span class="op-title">Scholar's Mate Challenge</span>
+                                <span class="op-moves">1. e4 e5 2. Qh5 Nc6 3. Bc4 Nf6 4. Qxf7#</span>
+                                <p class="op-desc">Learn how to deliver or defend against the rapid 4-move mate!</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Shared Theme Selection -->
                 <div class="menu-section">
                     <h3><i class="fa-solid fa-palette"></i> Style Theme</h3>
                     <div class="custom-select-wrapper">
@@ -186,17 +224,29 @@
         </div>
 
         <div class="side-panel">
-            <h2>Move History</h2>
-            <div id="historyBadge" class="history-badge hidden">Viewing History (Paused)</div>
-            <div class="history-list" id="historyList">
-                <!-- Move pairs go here -->
+            <!-- Normal History View -->
+            <div id="historyView">
+                <h2>Move History</h2>
+                <div id="historyBadge" class="history-badge hidden">Viewing History (Paused)</div>
+                <div class="history-list" id="historyList">
+                    <!-- Move pairs go here -->
+                </div>
+                <div class="history-nav">
+                    <button id="navFirst" class="nav-btn" title="First Move"><i class="fa-solid fa-angles-left"></i></button>
+                    <button id="navPrev" class="nav-btn" title="Previous Move"><i class="fa-solid fa-angle-left"></i></button>
+                    <button id="navNext" class="nav-btn" title="Next Move"><i class="fa-solid fa-angle-right"></i></button>
+                    <button id="navLast" class="nav-btn" title="Current Move"><i class="fa-solid fa-angles-right"></i></button>
+                </div>
             </div>
-            <div class="history-nav">
-                <button id="navFirst" class="nav-btn" title="First Move"><i class="fa-solid fa-angles-left"></i></button>
-                <button id="navPrev" class="nav-btn" title="Previous Move"><i class="fa-solid fa-angle-left"></i></button>
-                <button id="navNext" class="nav-btn" title="Next Move"><i class="fa-solid fa-angle-right"></i></button>
-                <button id="navLast" class="nav-btn" title="Current Move"><i class="fa-solid fa-angles-right"></i></button>
+
+            <!-- Teach View (Hidden by default) -->
+            <div id="teachView" class="hidden">
+                <h2>Opening Lesson</h2>
+                <div id="teachPanel">
+                    <!-- Dynamic details go here -->
+                </div>
             </div>
+
             <div class="sound-control">
                 <label for="soundSelect"><i class="fa-solid fa-volume-high"></i> Sounds:</label>
                 <select id="soundSelect" class="input-select-sm">
