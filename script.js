@@ -1306,6 +1306,20 @@ document.querySelectorAll('.time-btn').forEach(btn => {
     });
 });
 
+// --- Game Mode selections in Main Menu ---
+document.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const menuAiDiffSection = document.getElementById('menuAiDiffSection');
+        if (btn.dataset.mode === 'ai') {
+            menuAiDiffSection.classList.remove('hidden');
+        } else {
+            menuAiDiffSection.classList.add('hidden');
+        }
+    });
+});
+
 // --- Promotion overlay handlers ---
 document.querySelectorAll('.promotion-choice').forEach(choice => {
     choice.addEventListener('click', () => {

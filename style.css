@@ -17,6 +17,8 @@
     --gradient-bg-1: rgba(224, 122, 95, 0.05);
     --gradient-bg-2: rgba(129, 178, 154, 0.05);
     --board-container-bg: #ffffff;
+    --white-piece-color: #fcf9f2;
+    --black-piece-color: #2c2520;
     --white-piece-stroke: #81b29a;
     --black-piece-stroke: #a35d46;
 }
@@ -39,6 +41,8 @@
     --gradient-bg-1: rgba(138, 90, 68, 0.06);
     --gradient-bg-2: rgba(205, 154, 98, 0.06);
     --board-container-bg: #fffdfc;
+    --white-piece-color: #fffdfc;
+    --black-piece-color: #422616;
     --white-piece-stroke: #8a5a44;
     --black-piece-stroke: #cd9a62;
 }
@@ -61,6 +65,8 @@
     --gradient-bg-1: rgba(27, 67, 50, 0.07);
     --gradient-bg-2: rgba(82, 183, 136, 0.07);
     --board-container-bg: #f4f9f4;
+    --white-piece-color: #f4f9f4;
+    --black-piece-color: #081c15;
     --white-piece-stroke: #1b4332;
     --black-piece-stroke: #52b788;
 }
@@ -83,8 +89,10 @@
     --gradient-bg-1: rgba(56, 189, 248, 0.1);
     --gradient-bg-2: rgba(244, 63, 94, 0.1);
     --board-container-bg: #151d30;
+    --white-piece-color: #f1f5f9;
+    --black-piece-color: #f43f5e;
     --white-piece-stroke: #38bdf8;
-    --black-piece-stroke: #f43f5e;
+    --black-piece-stroke: #fda4af;
 }
 
 /* 🍂 Autumn Leaves */
@@ -105,6 +113,8 @@
     --gradient-bg-1: rgba(211, 84, 0, 0.06);
     --gradient-bg-2: rgba(229, 152, 102, 0.06);
     --board-container-bg: #ffffff;
+    --white-piece-color: #fffcf9;
+    --black-piece-color: #5c2a18;
     --white-piece-stroke: #d35400;
     --black-piece-stroke: #b5838d;
 }
@@ -127,6 +137,8 @@
     --gradient-bg-1: rgba(236, 64, 122, 0.05);
     --gradient-bg-2: rgba(171, 71, 188, 0.05);
     --board-container-bg: #ffffff;
+    --white-piece-color: #fff0f5;
+    --black-piece-color: #4d1825;
     --white-piece-stroke: #ec407a;
     --black-piece-stroke: #ab47bc;
 }
@@ -405,12 +417,12 @@ h1 {
 }
 
 .piece.white-piece {
-    color: #fcf9f2;
+    color: var(--white-piece-color, #fcf9f2);
     -webkit-text-stroke: 1.5px var(--white-piece-stroke);
 }
 
 .piece.black-piece {
-    color: #e07a5f;
+    color: var(--black-piece-color, #e07a5f);
     -webkit-text-stroke: 1.5px var(--black-piece-stroke);
 }
 
@@ -464,12 +476,12 @@ h1 {
 }
 
 .captured-piece.white-piece {
-    color: #fcf9f2;
+    color: var(--white-piece-color, #fcf9f2);
     -webkit-text-stroke: 1px var(--white-piece-stroke);
 }
 
 .captured-piece.black-piece {
-    color: #e07a5f;
+    color: var(--black-piece-color, #e07a5f);
     -webkit-text-stroke: 1px var(--black-piece-stroke);
 }
 
