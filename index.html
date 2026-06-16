@@ -10,7 +10,89 @@
 </head>
 <body>
     
-    <div class="layout">
+    <!-- Main Menu Overlay -->
+    <div id="mainMenu" class="main-menu-overlay">
+        <div class="menu-card">
+            <header class="menu-header">
+                <div class="menu-logo-container">
+                    <i class="fa-solid fa-mug-hot splash-icon"></i>
+                </div>
+                <h1>Cozy Chess</h1>
+                <p class="menu-subtitle">A relaxing strategy experience</p>
+            </header>
+            
+            <div class="menu-sections">
+                <!-- Game Mode Selector -->
+                <div class="menu-section">
+                    <h3><i class="fa-solid fa-gamepad"></i> Game Mode</h3>
+                    <div class="mode-options">
+                        <button class="mode-btn active" id="modeLocalBtn" data-mode="human">
+                            <i class="fa-solid fa-users"></i>
+                            <span class="mode-title">Pass & Play</span>
+                            <span class="mode-desc">Play locally with a friend</span>
+                        </button>
+                        <button class="mode-btn" id="modeAiBtn" data-mode="ai">
+                            <i class="fa-solid fa-robot"></i>
+                            <span class="mode-title">VS Stockfish</span>
+                            <span class="mode-desc">Challenge the computer AI</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- AI Difficulty Level (Hidden by default, shown for VS AI) -->
+                <div class="menu-section hidden" id="menuAiDiffSection">
+                    <h3><i class="fa-solid fa-brain"></i> AI Difficulty</h3>
+                    <div class="custom-select-wrapper">
+                        <select id="menuAiDifficulty" class="input-select-menu">
+                            <option value="0">Level 1 (Beginner - 800 Elo)</option>
+                            <option value="5">Level 5 (Intermediate - 1400 Elo)</option>
+                            <option value="10">Level 10 (Expert - 1800 Elo)</option>
+                            <option value="20">Level 20 (Master - 2500 Elo)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Time Control Selectors -->
+                <div class="menu-section">
+                    <h3><i class="fa-solid fa-clock"></i> Time Control</h3>
+                    <div class="time-grid">
+                        <button class="time-btn active" data-time="300+0">5 Min</button>
+                        <button class="time-btn" data-time="180+2">3+2</button>
+                        <button class="time-btn" data-time="60+0">1 Min</button>
+                        <button class="time-btn" data-time="600+0">10 Min</button>
+                        <button class="time-btn" data-time="1800+0">30 Min</button>
+                        <button class="time-btn" id="timeBtnCustom" data-time="custom">Custom</button>
+                    </div>
+                    
+                    <div id="menuCustomTimePanel" class="menu-custom-time hidden">
+                        <div class="menu-custom-inputs">
+                            <label>Min: <input type="number" id="menuCustomMin" value="5" min="1" max="180" class="input-num-menu"></label>
+                            <label>Inc (s): <input type="number" id="menuCustomInc" value="0" min="0" max="60" class="input-num-menu"></label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Theme Selection -->
+                <div class="menu-section">
+                    <h3><i class="fa-solid fa-palette"></i> Style Theme</h3>
+                    <div class="custom-select-wrapper">
+                        <select id="menuThemeSelect" class="input-select-menu">
+                            <option value="espresso">☕ Warm Espresso</option>
+                            <option value="forest">🌲 Forest Rain</option>
+                            <option value="midnight">🌌 Midnight Latte</option>
+                            <option value="autumn">🍂 Autumn Leaves</option>
+                            <option value="blossom">🌸 Cherry Blossom</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <button id="startGameBtn" class="btn btn-primary btn-block">Start Relaxing Match</button>
+        </div>
+    </div>
+
+    <!-- Active Game Layout -->
+    <div id="gameLayout" class="layout hidden">
         <div class="app-container">
             <header>
                 <h1>Cozy Chess</h1>
@@ -92,6 +174,7 @@
             </div>
 
             <div class="controls">
+                <button id="menuBtn" class="btn secondary" title="Back to Main Menu"><i class="fa-solid fa-house"></i> Menu</button>
                 <button id="resetBtn" class="btn">New Game</button>
                 <button id="flipBtn" class="btn secondary">Flip Board</button>
                 <button id="hintBtn" class="btn secondary" title="Show best move hint"><i class="fa-solid fa-lightbulb"></i> Hint</button>

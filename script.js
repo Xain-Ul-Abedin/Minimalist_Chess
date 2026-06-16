@@ -36,6 +36,20 @@ const pgnCancelBtn = document.getElementById('pgnCancelBtn');
 const gameModeSelect = document.getElementById('gameMode');
 const aiDifficultySelect = document.getElementById('aiDifficulty');
 
+// Main Menu elements
+const modeLocalBtn = document.getElementById('modeLocalBtn');
+const modeAiBtn = document.getElementById('modeAiBtn');
+const menuAiDiffSection = document.getElementById('menuAiDiffSection');
+const menuAiDifficulty = document.getElementById('menuAiDifficulty');
+const menuThemeSelect = document.getElementById('menuThemeSelect');
+const menuCustomTimePanel = document.getElementById('menuCustomTimePanel');
+const menuCustomMin = document.getElementById('menuCustomMin');
+const menuCustomInc = document.getElementById('menuCustomInc');
+const startGameBtn = document.getElementById('startGameBtn');
+const gameLayout = document.getElementById('gameLayout');
+const mainMenu = document.getElementById('mainMenu');
+const menuBtn = document.getElementById('menuBtn');
+
 // Game State variables
 let game = new Chess();
 let boardFlipped = false;
@@ -411,6 +425,7 @@ function stopTimer() {
     updateTimerDisplay();
 }
 
+// --- Dynamic Config Parsing ---
 function resetTimers() {
     stopTimer();
     const val = timeControlSelect.value;
@@ -439,6 +454,7 @@ function switchActiveColor(moveColor) {
     }
 }
 
+// Apply increment and store FEN
 function applyIncrementAndSwitch() {
     if (game.turn() === 'b') { // White just moved
         whiteTime += incrementSeconds;
@@ -454,14 +470,12 @@ function applyIncrementAndSwitch() {
     switchActiveColor(game.turn());
 }
 
-// --- UI Logic ---
+// --- UI Captured Material ---
 function updateCapturedPieces() {
-    // Determine which history to scan (live or history review)
     const isReviewing = historyIndex < fenHistory.length - 1;
     let scanGame = game;
     if (isReviewing) {
         scanGame = new Chess();
-        // Replay history up to historyIndex
         const fullHistory = game.history();
         for (let i = 0; i < historyIndex; i++) {
             scanGame.move(fullHistory[i]);
@@ -494,6 +508,7 @@ function updateCapturedPieces() {
     renderPieces(blackCaptures, blackCapturedEl, false);
 }
 
+// --- Move History List Builder ---
 function updateHistory() {
     const history = game.history();
     historyListEl.innerHTML = '';
@@ -532,33 +547,36 @@ function updateHistory() {
         historyListEl.appendChild(row);
     }
     
-    // Highlight the active history move visually in the history panel
+    // Highlight the active history move visually in the history panel and scroll it ONLY
     const moveEls = historyListEl.querySelectorAll('.move-w, .move-b');
     if (historyIndex > 0 && moveEls[historyIndex - 1]) {
-        moveEls[historyIndex - 1].style.color = 'var(--primary-btn)';
-        moveEls[historyIndex - 1].style.fontWeight = '700';
-        // Smooth scroll to highlighted move
-        moveEls[historyIndex - 1].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        const activeEl = moveEls[historyIndex - 1];
+        activeEl.style.color = 'var(--primary-btn)';
+        activeEl.style.fontWeight = '700';
+        
+        // Scroll ONLY the historyListEl panel using setting scrollTop (fixes outer window jumping)
+        const containerHeight = historyListEl.clientHeight;
+        const elemTop = activeEl.offsetTop;
+        const elemHeight = activeEl.clientHeight;
+        historyListEl.scrollTop = elemTop - containerHeight / 2 + elemHeight / 2;
     }
 }
 
 function updateHistoryNav() {
-    // Disable/enable navigation buttons depending on history index bounds
     document.getElementById('navFirst').disabled = (historyIndex === 0);
     document.getElementById('navPrev').disabled = (historyIndex === 0);
     document.getElementById('navNext').disabled = (historyIndex === fenHistory.length - 1);
     document.getElementById('navLast').disabled = (historyIndex === fenHistory.length - 1);
 }
 
+// --- Board Renderer ---
 function renderBoard() {
     boardEl.innerHTML = '';
     
-    // Determine which position we are viewing
     const isReviewing = historyIndex < fenHistory.length - 1;
     const displayGame = isReviewing ? new Chess(fenHistory[historyIndex]) : game;
     const board = displayGame.board(); 
     
-    // Show/hide pausing history indicator
     if (isReviewing) {
         historyBadge.classList.remove('hidden');
     } else {
@@ -654,7 +672,6 @@ function renderBoard() {
                 
                 if (!isReviewing) {
                     pieceEl.addEventListener('dragstart', (e) => {
-                        // Block human from moving AI piece
                         if (gameModeSelect.value === 'ai' && piece.color === 'b') {
                             e.preventDefault();
                             return;
@@ -719,7 +736,6 @@ function handleMove(from, to) {
     let move = moves.find(m => m.to === to);
 
     if (move) {
-        // Intercept Pawn Promotion
         if (move.flags.includes('p') || move.flags.includes('cp')) {
             pendingPromotion = { from: from, to: to };
             document.getElementById('promotionOverlay').classList.remove('hidden');
@@ -734,7 +750,7 @@ function handleMove(from, to) {
                 playSound('check');
             }
             selectedSquare = null;
-            hintMove = null; // Clear hint on move
+            hintMove = null;
             applyIncrementAndSwitch();
         }
     }
@@ -805,7 +821,6 @@ function updateStatus() {
     } else if (game.in_checkmate()) {
         status = `Game over, ${moveColor} is in checkmate.`;
         stopTimer();
-        // Delay slight bit to ensure board renders checkmate before modal shows
         setTimeout(() => {
             const winner = game.turn() === 'w' ? 'Black' : 'White';
             declareGameOver(`${winner} Wins!`, `${winner} won by checkmate.`);
@@ -854,8 +869,6 @@ function declareGameOver(title, desc) {
     
     const moves = game.history();
     statMoves.textContent = moves.length;
-    
-    // Format timer stats
     statTime.textContent = `W: ${formatTime(whiteTime)} | B: ${formatTime(blackTime)}`;
     
     gameOverModal.classList.remove('hidden');
@@ -884,6 +897,105 @@ function startNewGame() {
     startTimer();
 }
 
+// --- Main Menu UI Interactions ---
+modeLocalBtn.addEventListener('click', () => {
+    modeLocalBtn.classList.add('active');
+    modeAiBtn.classList.remove('active');
+    menuAiDiffSection.classList.add('hidden');
+});
+
+modeAiBtn.addEventListener('click', () => {
+    modeAiBtn.classList.add('active');
+    modeLocalBtn.classList.remove('active');
+    menuAiDiffSection.classList.remove('hidden');
+});
+
+// Time presets in menu
+document.querySelectorAll('.time-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        if (btn.dataset.time === 'custom') {
+            menuCustomTimePanel.classList.remove('hidden');
+        } else {
+            menuCustomTimePanel.classList.add('hidden');
+        }
+    });
+});
+
+// Sync themes on change in menu
+menuThemeSelect.addEventListener('change', (e) => {
+    const theme = e.target.value;
+    document.body.setAttribute('data-theme', theme);
+    themeSelect.value = theme;
+    localStorage.setItem('cozy-chess-theme', theme);
+});
+
+// Sync themes on change in active game
+themeSelect.addEventListener('change', (e) => {
+    const theme = e.target.value;
+    document.body.setAttribute('data-theme', theme);
+    menuThemeSelect.value = theme;
+    localStorage.setItem('cozy-chess-theme', theme);
+});
+
+// Back to menu
+menuBtn.addEventListener('click', () => {
+    stopTimer();
+    gameLayout.classList.add('hidden');
+    mainMenu.classList.remove('hidden');
+});
+
+// Start button execution
+startGameBtn.addEventListener('click', () => {
+    // 1. Sync theme
+    const theme = menuThemeSelect.value;
+    themeSelect.value = theme;
+    document.body.setAttribute('data-theme', theme);
+    localStorage.setItem('cozy-chess-theme', theme);
+
+    // 2. Sync game mode
+    const isAi = modeAiBtn.classList.contains('active');
+    gameModeSelect.value = isAi ? 'ai' : 'human';
+    aiDifficultySelect.disabled = !isAi;
+    aiDifficultySelect.value = menuAiDifficulty.value;
+
+    // 3. Sync time control settings
+    const activeTimeBtn = document.querySelector('.time-btn.active');
+    const timeVal = activeTimeBtn.dataset.time;
+    if (timeVal === 'custom') {
+        const mins = parseInt(menuCustomMin.value);
+        const inc = parseInt(menuCustomInc.value);
+        if (isNaN(mins) || mins < 1) {
+            showCustomAlert("Please enter a valid time (minimum 1 minute).");
+            return;
+        }
+        whiteTime = mins * 60;
+        blackTime = mins * 60;
+        incrementSeconds = isNaN(inc) ? 0 : inc;
+        
+        timeControlSelect.value = 'custom';
+        customTimePanel.classList.remove('hidden');
+        document.getElementById('customMin').value = mins;
+        document.getElementById('customInc').value = inc;
+    } else {
+        timeControlSelect.value = timeVal;
+        customTimePanel.classList.add('hidden');
+        parseTimeSetting(timeVal);
+    }
+
+    // Initialize game state
+    startNewGame();
+
+    // Transition animation
+    mainMenu.classList.add('fade-out');
+    setTimeout(() => {
+        mainMenu.classList.add('hidden');
+        gameLayout.classList.remove('hidden');
+        mainMenu.classList.remove('fade-out');
+    }, 450);
+});
+
 // --- Pawn Promotion Choice Event Listeners ---
 document.querySelectorAll('.promotion-choice').forEach(choice => {
     choice.addEventListener('click', () => {
@@ -892,7 +1004,7 @@ document.querySelectorAll('.promotion-choice').forEach(choice => {
     });
 });
 
-// --- Event Listeners ---
+// --- In-Game Select Listeners ---
 resetBtn.addEventListener('click', () => {
     startNewGame();
 });
@@ -932,7 +1044,6 @@ drawBtn.addEventListener('click', () => {
             return;
         }
         
-        // Check current evaluation score
         const scoreText = evalScoreEl.textContent;
         let isBalanced = false;
         if (scoreText) {
@@ -961,18 +1072,7 @@ aiDifficultySelect.addEventListener('change', () => {
     triggerAi();
 });
 
-// Theme Switcher
-const savedTheme = localStorage.getItem('cozy-chess-theme') || 'espresso';
-themeSelect.value = savedTheme;
-document.body.setAttribute('data-theme', savedTheme);
-
-themeSelect.addEventListener('change', (e) => {
-    const theme = e.target.value;
-    document.body.setAttribute('data-theme', theme);
-    localStorage.setItem('cozy-chess-theme', theme);
-});
-
-// Time Control Presets
+// In-Game Time Control select change
 timeControlSelect.addEventListener('change', (e) => {
     const val = e.target.value;
     if (val === 'custom') {
@@ -1035,11 +1135,9 @@ pgnSubmitBtn.addEventListener('click', () => {
     
     const tempGame = new Chess();
     if (tempGame.load_pgn(pgn)) {
-        // Success: copy to active game
         game.load_pgn(pgn);
         importPgnModal.classList.add('hidden');
         
-        // Rebuild history list of FENs
         const moves = tempGame.history();
         const replayer = new Chess();
         fenHistory = [replayer.fen()];
@@ -1094,5 +1192,10 @@ document.getElementById('navLast').addEventListener('click', () => {
 });
 
 // Boot Setup
+const savedThemeBoot = localStorage.getItem('cozy-chess-theme') || 'espresso';
+themeSelect.value = savedThemeBoot;
+menuThemeSelect.value = savedThemeBoot;
+document.body.setAttribute('data-theme', savedThemeBoot);
+
 parseTimeSetting(timeControlSelect.value);
-startNewGame();
+renderBoard();
