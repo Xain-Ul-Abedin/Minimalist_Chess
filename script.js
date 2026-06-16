@@ -27,6 +27,7 @@ let musicPlaying = false;
 let chordInterval = null;
 let ambientNoiseSource = null;
 let currentChordIndex = 0;
+let gamePaused = false;
 
 // Custom modals elements
 const gameOverModal = document.getElementById('gameOverModal');
@@ -377,6 +378,7 @@ function initEngine() {
                             }
                         } else {
                             if (move && move !== '(none)' && game.turn() === 'b' && gameModeSelect.value === 'ai' && !teachModeActive) {
+                                if (gamePaused) return;
                                 const moveObj = {
                                     from: move.substring(0, 2),
                                     to: move.substring(2, 4),
@@ -417,6 +419,9 @@ function initEngine() {
                 
                 engine.postMessage('uci');
                 engineReady = true;
+            })
+            .catch(err => {
+                console.error("Stockfish failed to load", err);
             });
     } catch(e) {
         console.error("Stockfish failed to load", e);
@@ -426,6 +431,7 @@ function initEngine() {
 initEngine();
 
 function triggerAi() {
+    if (gamePaused) return;
     if (teachModeActive) return; // Disable Stockfish in Teach Mode
     const isAi = gameModeSelect.value === 'ai';
     if (!engineReady || game.game_over()) return;
@@ -904,7 +910,7 @@ function renderBoard() {
                 const pieceEl = document.createElement('div');
                 pieceEl.className = `piece ${colorClass}`;
                 pieceEl.innerHTML = `<i class="fa-solid ${iconClass}"></i>`;
-                pieceEl.draggable = !isReviewing;
+                pieceEl.draggable = !isReviewing && !gamePaused;
                 
                 // Micro bounce animation for just-moved piece
                 if (lastMove && squareId === lastMove.to) {
@@ -922,6 +928,10 @@ function renderBoard() {
                 
                 if (!isReviewing) {
                     pieceEl.addEventListener('dragstart', (e) => {
+                        if (gamePaused) {
+                            e.preventDefault();
+                            return;
+                        }
                         // Prevent moving black in AI game mode
                         if (!teachModeActive && gameModeSelect.value === 'ai' && piece.color === 'b') {
                             e.preventDefault();
@@ -989,6 +999,7 @@ function renderBoard() {
 }
 
 function handleMove(from, to) {
+    if (gamePaused) return;
     if (game.game_over()) return;
 
     if (teachModeActive) {
@@ -1092,6 +1103,7 @@ function selectPromotion(pieceType) {
 }
 
 function handleSquareClick(square) {
+    if (gamePaused) return;
     if (game.game_over()) return;
     if (!teachModeActive && gameModeSelect.value === 'ai' && game.turn() === 'b') return;
 
@@ -1213,6 +1225,9 @@ function declareGameOver(title, desc) {
 }
 
 function startNewGame() {
+    if (gamePaused) {
+        resumeGame();
+    }
     game.reset();
     selectedSquare = null;
     hintMove = null;
@@ -1310,6 +1325,10 @@ startGameBtn.addEventListener('click', () => {
 
         // Sync game modes & limits
         const isAi = modeAiBtn.classList.contains('active');
+        if (isAi && !engineReady) {
+            showCustomAlert("Stockfish AI is still loading or offline. Please wait or try a local match!");
+            return;
+        }
         gameModeSelect.value = isAi ? 'ai' : 'human';
         aiDifficultySelect.disabled = !isAi;
         aiDifficultySelect.value = menuAiDifficulty.value;
@@ -1510,6 +1529,12 @@ drawBtn.addEventListener('click', () => {
 });
 
 gameModeSelect.addEventListener('change', (e) => {
+    if (e.target.value === 'ai' && !engineReady) {
+        showCustomAlert("Stockfish AI failed to load. Please check your internet connection.");
+        gameModeSelect.value = 'human';
+        aiDifficultySelect.disabled = true;
+        return;
+    }
     aiDifficultySelect.disabled = e.target.value !== 'ai';
     triggerAi();
 });
@@ -1813,6 +1838,56 @@ function toggleMusic() {
 
 musicToggleBtn.addEventListener('click', () => {
     toggleMusic();
+});
+
+// --- Game Pause Engine ---
+function pauseGame() {
+    if (game.game_over() || teachModeActive) return;
+    gamePaused = true;
+    stopTimer();
+    
+    boardEl.classList.add('blurred');
+    const evalBarContainer = evalBarEl.parentElement;
+    if (evalBarContainer) evalBarContainer.classList.add('blurred');
+    
+    document.getElementById('pauseOverlay').classList.remove('hidden');
+    
+    const pauseBtn = document.getElementById('pauseBtn');
+    if (pauseBtn) {
+        pauseBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
+        pauseBtn.title = "Resume Game";
+    }
+}
+
+function resumeGame() {
+    if (!gamePaused) return;
+    gamePaused = false;
+    
+    boardEl.classList.remove('blurred');
+    const evalBarContainer = evalBarEl.parentElement;
+    if (evalBarContainer) evalBarContainer.classList.remove('blurred');
+    
+    document.getElementById('pauseOverlay').classList.add('hidden');
+    
+    const pauseBtn = document.getElementById('pauseBtn');
+    if (pauseBtn) {
+        pauseBtn.innerHTML = '<i class="fa-solid fa-pause"></i>';
+        pauseBtn.title = "Pause Game";
+    }
+    
+    startTimer();
+}
+
+document.getElementById('pauseBtn').addEventListener('click', () => {
+    if (gamePaused) {
+        resumeGame();
+    } else {
+        pauseGame();
+    }
+});
+
+document.getElementById('resumeBtn').addEventListener('click', () => {
+    resumeGame();
 });
 
 // Boot Setup

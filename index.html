@@ -208,8 +208,17 @@
                             </div>
                         </div>
                     </div>
+                    <!-- Game Paused Overlay -->
+                    <div id="pauseOverlay" class="pause-overlay hidden">
+                        <div class="pause-box">
+                            <h2><i class="fa-solid fa-circle-pause"></i> Game Paused</h2>
+                            <p>Clocks are stopped. Board is hidden.</p>
+                            <button id="resumeBtn" class="btn btn-primary"><i class="fa-solid fa-play"></i> Resume Play</button>
+                        </div>
+                    </div>
                 </div>
                 <div class="board-actions-sidebar">
+                    <button id="pauseBtn" class="board-action-btn" title="Pause Game"><i class="fa-solid fa-pause"></i></button>
                     <button id="undoBtn" class="board-action-btn" title="Undo Move"><i class="fa-solid fa-rotate-left"></i></button>
                     <button id="flipBtn" class="board-action-btn" title="Flip Board"><i class="fa-solid fa-arrows-rotate"></i></button>
                     <button id="hintBtn" class="board-action-btn" title="Show best move hint"><i class="fa-solid fa-lightbulb"></i></button>
@@ -229,6 +238,25 @@
         </div>
 
         <div class="side-panel">
+            <!-- Settings Section at the Top -->
+            <div class="side-panel-settings">
+                <h2><i class="fa-solid fa-gear"></i> Settings</h2>
+                <div class="settings-controls-group">
+                    <div class="music-control">
+                        <label><i class="fa-solid fa-music"></i> Music:</label>
+                        <button id="musicToggleBtn" class="btn-music-control" title="Toggle Ambient Background Music">Off</button>
+                    </div>
+                    <div class="sound-control">
+                        <label for="soundSelect"><i class="fa-solid fa-volume-high"></i> Sounds:</label>
+                        <select id="soundSelect" class="input-select-sm">
+                            <option value="wood">Wood Click</option>
+                            <option value="synth">Digital Synth</option>
+                            <option value="mute">Muted</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
             <!-- Normal History View -->
             <div id="historyView">
                 <h2>Move History</h2>
@@ -250,20 +278,6 @@
                 <div id="teachPanel">
                     <!-- Dynamic details go here -->
                 </div>
-            </div>
-
-            <div class="music-control">
-                <label><i class="fa-solid fa-music"></i> Music:</label>
-                <button id="musicToggleBtn" class="btn-music-control" title="Toggle Ambient Background Music">Off</button>
-            </div>
-
-            <div class="sound-control">
-                <label for="soundSelect"><i class="fa-solid fa-volume-high"></i> Sounds:</label>
-                <select id="soundSelect" class="input-select-sm">
-                    <option value="wood">Wood Click</option>
-                    <option value="synth">Digital Synth</option>
-                    <option value="mute">Muted</option>
-                </select>
             </div>
         </div>
     </div>
