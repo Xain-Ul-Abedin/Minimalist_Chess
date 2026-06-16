@@ -1458,6 +1458,53 @@ h1 {
     background: var(--light-square);
 }
 
+/* --- Board Actions Sidebar --- */
+.board-actions-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    justify-content: center;
+    background: var(--panel-bg);
+    border: 1px solid var(--board-border);
+    padding: 10px;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    transition: background-color 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease;
+}
+
+.board-action-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    border: 1px solid var(--board-border);
+    background: var(--bg-color);
+    color: var(--text-color);
+    font-size: 18px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.board-action-btn:hover {
+    background: var(--primary-btn);
+    color: #fff;
+    border-color: var(--primary-btn);
+    transform: translateX(3px) scale(1.05);
+    box-shadow: 0 4px 12px rgba(129, 178, 154, 0.25);
+}
+
+.board-action-btn.danger:hover {
+    background: var(--secondary-color);
+    border-color: var(--secondary-color);
+    box-shadow: 0 4px 12px rgba(224, 122, 95, 0.25);
+}
+
+.board-action-btn:active {
+    transform: translateX(1px) scale(0.95);
+}
+
 /* --- Responsive Layout and Spacing Optimizations --- */
 
 /* For Tablet Viewports */
@@ -1488,6 +1535,29 @@ h1 {
     .history-list {
         max-height: 250px;
         min-height: 150px;
+    }
+    
+    .board-wrapper {
+        flex-direction: column;
+        align-items: center;
+        gap: 15px;
+    }
+    
+    .board-actions-sidebar {
+        flex-direction: row;
+        width: 100%;
+        max-width: 550px;
+        justify-content: space-around;
+        padding: 8px;
+        border-radius: 16px;
+    }
+    
+    .board-action-btn:hover {
+        transform: translateY(-3px) scale(1.05);
+    }
+    
+    .board-action-btn:active {
+        transform: translateY(-1px) scale(0.95);
     }
 }
 
@@ -1577,6 +1647,20 @@ h1 {
     
     .board-wrapper {
         gap: 8px;
+    }
+    
+    .board-actions-sidebar {
+        max-width: 300px;
+        padding: 6px;
+        border-radius: 12px;
+        gap: 8px;
+    }
+    
+    .board-action-btn {
+        width: 38px;
+        height: 38px;
+        font-size: 14px;
+        border-radius: 8px;
     }
     
     .app-container {

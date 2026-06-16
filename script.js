@@ -5,6 +5,7 @@ const flipBtn = document.getElementById('flipBtn');
 const hintBtn = document.getElementById('hintBtn');
 const resignBtn = document.getElementById('resignBtn');
 const drawBtn = document.getElementById('drawBtn');
+const undoBtn = document.getElementById('undoBtn');
 const whiteTimerEl = document.getElementById('whiteTimer');
 const blackTimerEl = document.getElementById('blackTimer');
 const whiteCapturedEl = document.getElementById('whiteCaptured');
@@ -1326,6 +1327,52 @@ document.querySelectorAll('.promotion-choice').forEach(choice => {
         const pieceType = choice.dataset.piece;
         selectPromotion(pieceType);
     });
+});
+
+// --- Undo Move Logic ---
+function undoMove() {
+    if (teachModeActive) return;
+    
+    // Exit history review mode first
+    historyIndex = fenHistory.length - 1;
+    
+    const isAiMode = (gameModeSelect.value === 'ai');
+    
+    if (isAiMode) {
+        if (fenHistory.length > 2) {
+            game.undo();
+            game.undo();
+            fenHistory.pop();
+            fenHistory.pop();
+            historyIndex = fenHistory.length - 1;
+        } else {
+            showCustomAlert("No moves to undo.");
+            return;
+        }
+    } else {
+        if (fenHistory.length > 1) {
+            game.undo();
+            fenHistory.pop();
+            historyIndex = fenHistory.length - 1;
+        } else {
+            showCustomAlert("No moves to undo.");
+            return;
+        }
+    }
+    
+    thinkingSpinner.classList.add('hidden');
+    switchActiveColor(game.turn());
+    renderBoard();
+    updateHistory();
+    updateCapturedPieces();
+    updateHistoryNav();
+    playSound('wood');
+    
+    triggerAi();
+}
+
+undoBtn.addEventListener('click', () => {
+    undoMove();
 });
 
 // --- In-Game handlers ---
