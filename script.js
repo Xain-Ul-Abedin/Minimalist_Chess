@@ -2,27 +2,64 @@ const boardEl = document.getElementById('board');
 const statusEl = document.getElementById('status');
 const resetBtn = document.getElementById('resetBtn');
 const flipBtn = document.getElementById('flipBtn');
+const hintBtn = document.getElementById('hintBtn');
+const resignBtn = document.getElementById('resignBtn');
+const drawBtn = document.getElementById('drawBtn');
 const whiteTimerEl = document.getElementById('whiteTimer');
 const blackTimerEl = document.getElementById('blackTimer');
 const whiteCapturedEl = document.getElementById('whiteCaptured');
 const blackCapturedEl = document.getElementById('blackCaptured');
 const historyListEl = document.getElementById('historyList');
 const evalBarEl = document.getElementById('evalBar');
+const evalScoreEl = document.getElementById('evalScore');
+const thinkingSpinner = document.getElementById('thinkingSpinner');
+const themeSelect = document.getElementById('themeSelect');
+const timeControlSelect = document.getElementById('timeControlSelect');
+const customTimePanel = document.getElementById('customTimePanel');
+const soundSelect = document.getElementById('soundSelect');
+const historyBadge = document.getElementById('historyBadge');
+
+// Custom modals elements
+const gameOverModal = document.getElementById('gameOverModal');
+const modalWinnerTitle = document.getElementById('modalWinnerTitle');
+const modalWinnerDesc = document.getElementById('modalWinnerDesc');
+const statMoves = document.getElementById('statMoves');
+const statTime = document.getElementById('statTime');
+const modalNewGameBtn = document.getElementById('modalNewGameBtn');
+const modalCloseBtn = document.getElementById('modalCloseBtn');
+
+const importPgnModal = document.getElementById('importPgnModal');
+const pgnInputText = document.getElementById('pgnInputText');
+const pgnSubmitBtn = document.getElementById('pgnSubmitBtn');
+const pgnCancelBtn = document.getElementById('pgnCancelBtn');
+
 const gameModeSelect = document.getElementById('gameMode');
 const aiDifficultySelect = document.getElementById('aiDifficulty');
 
-const INITIAL_TIME_SECONDS = 300;
-
+// Game State variables
 let game = new Chess();
 let boardFlipped = false;
 let selectedSquare = null;
 
+let INITIAL_TIME_SECONDS = 300;
 let whiteTime = INITIAL_TIME_SECONDS;
 let blackTime = INITIAL_TIME_SECONDS;
+let incrementSeconds = 0;
 let activeColor = 'w';
 let timerStopped = true;
 let lastTick = null;
 let timerHandle = null;
+
+// History navigation state
+let fenHistory = [game.fen()];
+let historyIndex = 0;
+
+// Promotion state
+let pendingPromotion = null;
+
+// Hint state
+let hintMove = null;
+let awaitingHint = false;
 
 // AI Engine State
 let engine = null;
@@ -32,7 +69,57 @@ let engineReady = false;
 const AudioContext = window.AudioContext || window.webkitAudioContext;
 const audioCtx = new AudioContext();
 
-function playSound(type) {
+// --- Sound Synthesizers ---
+function playWoodSound(type) {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const osc = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+    osc.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+
+    if (type === 'move') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(130, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(70, audioCtx.currentTime + 0.05);
+        gainNode.gain.setValueAtTime(0.4, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.05);
+    } else if (type === 'capture') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(90, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.08);
+        gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.08);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.08);
+    } else if (type === 'check') {
+        // Double wood knock
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(160, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.04);
+        gainNode.gain.setValueAtTime(0.4, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.04);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.04);
+
+        setTimeout(() => {
+            const osc2 = audioCtx.createOscillator();
+            const gainNode2 = audioCtx.createGain();
+            osc2.connect(gainNode2);
+            gainNode2.connect(audioCtx.destination);
+            osc2.type = 'triangle';
+            osc2.frequency.setValueAtTime(190, audioCtx.currentTime);
+            osc2.frequency.exponentialRampToValueAtTime(130, audioCtx.currentTime + 0.04);
+            gainNode2.gain.setValueAtTime(0.4, audioCtx.currentTime);
+            gainNode2.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.04);
+            osc2.start();
+            osc2.stop(audioCtx.currentTime + 0.04);
+        }, 65);
+    }
+}
+
+function playSynthSound(type) {
     if (audioCtx.state === 'suspended') audioCtx.resume();
     const osc = audioCtx.createOscillator();
     const gainNode = audioCtx.createGain();
@@ -41,20 +128,39 @@ function playSound(type) {
 
     if (type === 'move') {
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(300, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(500, audioCtx.currentTime + 0.1);
-        gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        osc.frequency.setValueAtTime(329.63, audioCtx.currentTime); // E4
+        osc.frequency.exponentialRampToValueAtTime(440.00, audioCtx.currentTime + 0.1); // A4
+        gainNode.gain.setValueAtTime(0.25, audioCtx.currentTime);
         gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
         osc.start();
         osc.stop(audioCtx.currentTime + 0.1);
     } else if (type === 'capture') {
-        osc.type = 'square';
-        osc.frequency.setValueAtTime(150, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.15);
-        gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+        osc.frequency.setValueAtTime(392.00, audioCtx.currentTime + 0.06); // G4
+        gainNode.gain.setValueAtTime(0.25, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
         osc.start();
-        osc.stop(audioCtx.currentTime + 0.15);
+        osc.stop(audioCtx.currentTime + 0.12);
+    } else if (type === 'check') {
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+        osc.frequency.setValueAtTime(554.37, audioCtx.currentTime + 0.08); // C#5
+        osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.16); // E5
+        gainNode.gain.setValueAtTime(0.12, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.24);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.24);
+    }
+}
+
+function playSound(type) {
+    const mode = soundSelect.value;
+    if (mode === 'mute') return;
+    if (mode === 'wood') {
+        playWoodSound(type);
+    } else if (mode === 'synth') {
+        playSynthSound(type);
     }
 }
 
@@ -65,6 +171,77 @@ const pieceIcons = {
     'P': 'fa-chess-pawn', 'N': 'fa-chess-knight', 'B': 'fa-chess-bishop',
     'R': 'fa-chess-rook', 'Q': 'fa-chess-queen', 'K': 'fa-chess-king'
 };
+
+// --- Confetti Engine ---
+let confettiActive = false;
+let confettiParticles = [];
+let confettiAnimationFrame = null;
+
+function startConfetti() {
+    const canvas = document.getElementById('confettiCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Fit canvas to parent modal size
+    canvas.width = canvas.parentElement.clientWidth;
+    canvas.height = canvas.parentElement.clientHeight;
+
+    confettiActive = true;
+    confettiParticles = [];
+    
+    for (let i = 0; i < 100; i++) {
+        confettiParticles.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height - canvas.height,
+            r: Math.random() * 6 + 4,
+            d: Math.random() * canvas.height,
+            color: `hsl(${Math.random() * 360}, 75%, 60%)`,
+            tilt: Math.random() * 10 - 5,
+            tiltAngleIncremental: Math.random() * 0.07 + 0.02,
+            tiltAngle: 0
+        });
+    }
+
+    function draw() {
+        if (!confettiActive) return;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        let remaining = 0;
+        confettiParticles.forEach((p) => {
+            p.tiltAngle += p.tiltAngleIncremental;
+            p.y += (Math.cos(p.d) + 3 + p.r / 2) / 2;
+            p.x += Math.sin(p.tiltAngle);
+            p.tilt = Math.sin(p.tiltAngle - p.r / 2) * 5;
+
+            if (p.y <= canvas.height) {
+                remaining++;
+            }
+
+            ctx.beginPath();
+            ctx.lineWidth = p.r;
+            ctx.strokeStyle = p.color;
+            ctx.moveTo(p.x + p.tilt + p.r / 2, p.y);
+            ctx.lineTo(p.x + p.tilt, p.y + p.tilt + p.r / 2);
+            ctx.stroke();
+        });
+
+        if (remaining > 0 && confettiActive) {
+            confettiAnimationFrame = requestAnimationFrame(draw);
+        } else {
+            confettiActive = false;
+        }
+    }
+
+    if (confettiAnimationFrame) cancelAnimationFrame(confettiAnimationFrame);
+    draw();
+}
+
+function stopConfetti() {
+    confettiActive = false;
+    if (confettiAnimationFrame) {
+        cancelAnimationFrame(confettiAnimationFrame);
+        confettiAnimationFrame = null;
+    }
+}
 
 // --- Engine Initialization (Stockfish) ---
 function initEngine() {
@@ -79,20 +256,36 @@ function initEngine() {
                 engine.onmessage = function(event) {
                     const line = event.data;
                     
-                    // Handle Engine Move
+                    // Handle Engine Move or Hint
                     if (line.includes('bestmove')) {
+                        thinkingSpinner.classList.add('hidden');
                         const move = line.split(' ')[1];
-                        if (move && move !== '(none)') {
-                            const moveObj = {
-                                from: move.substring(0, 2),
-                                to: move.substring(2, 4),
-                                promotion: move.length > 4 ? move.charAt(4) : undefined
-                            };
-                            const res = game.move(moveObj);
-                            if (res) {
-                                playSound(res.captured ? 'capture' : 'move');
-                                switchActiveColor(game.turn());
+                        
+                        if (awaitingHint) {
+                            awaitingHint = false;
+                            if (move && move !== '(none)') {
+                                hintMove = {
+                                    from: move.substring(0, 2),
+                                    to: move.substring(2, 4)
+                                };
                                 renderBoard();
+                            }
+                        } else {
+                            if (move && move !== '(none)' && game.turn() === 'b' && gameModeSelect.value === 'ai') {
+                                const moveObj = {
+                                    from: move.substring(0, 2),
+                                    to: move.substring(2, 4),
+                                    promotion: move.length > 4 ? move.charAt(4) : undefined
+                                };
+                                const res = game.move(moveObj);
+                                if (res) {
+                                    playSound(res.captured ? 'capture' : 'move');
+                                    if (game.in_check() || game.in_checkmate()) {
+                                        playSound('check');
+                                    }
+                                    applyIncrementAndSwitch();
+                                    renderBoard();
+                                }
                             }
                         }
                     }
@@ -105,6 +298,7 @@ function initEngine() {
                             // Ensure score is from White's perspective
                             if (game.turn() === 'b') score = -score;
                             updateEvalBar(score);
+                            updateEvalScore(score, false);
                         }
                     } else if (line.includes('score mate')) {
                         const match = line.match(/score mate (-?\d+)/);
@@ -112,6 +306,7 @@ function initEngine() {
                             let mate = parseInt(match[1]);
                             if (game.turn() === 'b') mate = -mate;
                             updateEvalBar(mate > 0 ? 100 : -100);
+                            updateEvalScore(mate, true);
                         }
                     }
                 };
@@ -128,27 +323,37 @@ initEngine();
 
 function triggerAi() {
     const isAi = gameModeSelect.value === 'ai';
-    if (!isAi || !engineReady || game.game_over()) return;
+    if (!engineReady || game.game_over()) return;
     
-    // Assume AI plays Black for now
-    if (game.turn() === 'b') {
+    // Check if we need to show the spinner (only when AI is actively thinking for its own turn)
+    if (isAi && game.turn() === 'b') {
+        thinkingSpinner.classList.remove('hidden');
         const skill = aiDifficultySelect.value;
         engine.postMessage(`setoption name Skill Level value ${skill}`);
         engine.postMessage(`position fen ${game.fen()}`);
-        engine.postMessage('go depth 10'); // Fix depth for web performance
+        engine.postMessage('go depth 10'); 
     } else {
-        // If it's white's turn, we evaluate the position to update the bar
+        // Just run evaluation in background on player turns, no thinking spinner
         engine.postMessage(`position fen ${game.fen()}`);
         engine.postMessage('go depth 10');
     }
 }
 
 function updateEvalBar(score) {
-    // Math: Cap at +5 or -5. Map to 0-100%
     const cappedScore = Math.max(-5, Math.min(5, score));
     const percentage = 50 + (cappedScore * 10); // 1 point = 10% movement
     evalBarEl.style.height = `${percentage}%`;
 }
+
+function updateEvalScore(score, isMate) {
+    if (isMate) {
+        evalScoreEl.textContent = score > 0 ? `M${score}` : `-M${Math.abs(score)}`;
+    } else {
+        const formatted = score.toFixed(1);
+        evalScoreEl.textContent = score > 0 ? `+${formatted}` : formatted;
+    }
+}
+
 // --- Timer Logic ---
 function formatTime(totalSeconds) {
     const minutes = Math.floor(Math.max(0, Math.floor(totalSeconds)) / 60);
@@ -159,8 +364,11 @@ function formatTime(totalSeconds) {
 function updateTimerDisplay() {
     whiteTimerEl.textContent = formatTime(whiteTime);
     blackTimerEl.textContent = formatTime(blackTime);
-    whiteTimerEl.classList.toggle('active', activeColor === 'w' && !timerStopped);
-    blackTimerEl.classList.toggle('active', activeColor === 'b' && !timerStopped);
+    
+    // Only highlight timers if the game is active
+    const isReviewing = historyIndex < fenHistory.length - 1;
+    whiteTimerEl.classList.toggle('active', activeColor === 'w' && !timerStopped && !isReviewing);
+    blackTimerEl.classList.toggle('active', activeColor === 'b' && !timerStopped && !isReviewing);
 }
 
 function startTimer() {
@@ -181,9 +389,14 @@ function startTimer() {
 
         updateTimerDisplay();
 
-        if (whiteTime <= 0 || blackTime <= 0) {
+        if (whiteTime <= 0) {
             stopTimer();
-            updateStatus();
+            declareGameOver("Game Over", "Black wins on time!");
+            return;
+        }
+        if (blackTime <= 0) {
+            stopTimer();
+            declareGameOver("Game Over", "White wins on time!");
             return;
         }
     }, 100);
@@ -200,9 +413,22 @@ function stopTimer() {
 
 function resetTimers() {
     stopTimer();
-    whiteTime = INITIAL_TIME_SECONDS;
-    blackTime = INITIAL_TIME_SECONDS;
-    activeColor = 'w';
+    const val = timeControlSelect.value;
+    if (val !== 'custom') {
+        parseTimeSetting(val);
+    }
+}
+
+function parseTimeSetting(value) {
+    if (value === 'custom') return;
+    const parts = value.split('+');
+    const secs = parseInt(parts[0]);
+    const inc = parts[1] ? parseInt(parts[1]) : 0;
+    
+    whiteTime = secs;
+    blackTime = secs;
+    incrementSeconds = inc;
+    
     updateTimerDisplay();
 }
 
@@ -213,9 +439,36 @@ function switchActiveColor(moveColor) {
     }
 }
 
+function applyIncrementAndSwitch() {
+    if (game.turn() === 'b') { // White just moved
+        whiteTime += incrementSeconds;
+    } else { // Black just moved
+        blackTime += incrementSeconds;
+    }
+    
+    // Save live state to history
+    fenHistory.push(game.fen());
+    historyIndex = fenHistory.length - 1;
+    updateHistoryNav();
+    
+    switchActiveColor(game.turn());
+}
+
 // --- UI Logic ---
 function updateCapturedPieces() {
-    const history = game.history({ verbose: true });
+    // Determine which history to scan (live or history review)
+    const isReviewing = historyIndex < fenHistory.length - 1;
+    let scanGame = game;
+    if (isReviewing) {
+        scanGame = new Chess();
+        // Replay history up to historyIndex
+        const fullHistory = game.history();
+        for (let i = 0; i < historyIndex; i++) {
+            scanGame.move(fullHistory[i]);
+        }
+    }
+
+    const history = scanGame.history({ verbose: true });
     let whiteCaptures = [];
     let blackCaptures = [];
 
@@ -256,10 +509,22 @@ function updateHistory() {
         const wMove = document.createElement('div');
         wMove.className = 'move-w';
         wMove.textContent = history[i];
+        wMove.style.cursor = 'pointer';
+        wMove.addEventListener('click', () => {
+            historyIndex = i + 1;
+            renderBoard();
+        });
         
         const bMove = document.createElement('div');
         bMove.className = 'move-b';
         bMove.textContent = history[i+1] || '';
+        if (history[i+1]) {
+            bMove.style.cursor = 'pointer';
+            bMove.addEventListener('click', () => {
+                historyIndex = i + 2;
+                renderBoard();
+            });
+        }
         
         row.appendChild(num);
         row.appendChild(wMove);
@@ -267,15 +532,66 @@ function updateHistory() {
         historyListEl.appendChild(row);
     }
     
-    historyListEl.scrollTop = historyListEl.scrollHeight;
+    // Highlight the active history move visually in the history panel
+    const moveEls = historyListEl.querySelectorAll('.move-w, .move-b');
+    if (historyIndex > 0 && moveEls[historyIndex - 1]) {
+        moveEls[historyIndex - 1].style.color = 'var(--primary-btn)';
+        moveEls[historyIndex - 1].style.fontWeight = '700';
+        // Smooth scroll to highlighted move
+        moveEls[historyIndex - 1].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+}
+
+function updateHistoryNav() {
+    // Disable/enable navigation buttons depending on history index bounds
+    document.getElementById('navFirst').disabled = (historyIndex === 0);
+    document.getElementById('navPrev').disabled = (historyIndex === 0);
+    document.getElementById('navNext').disabled = (historyIndex === fenHistory.length - 1);
+    document.getElementById('navLast').disabled = (historyIndex === fenHistory.length - 1);
 }
 
 function renderBoard() {
     boardEl.innerHTML = '';
-    const board = game.board(); 
     
+    // Determine which position we are viewing
+    const isReviewing = historyIndex < fenHistory.length - 1;
+    const displayGame = isReviewing ? new Chess(fenHistory[historyIndex]) : game;
+    const board = displayGame.board(); 
+    
+    // Show/hide pausing history indicator
+    if (isReviewing) {
+        historyBadge.classList.remove('hidden');
+    } else {
+        historyBadge.classList.add('hidden');
+    }
+
     const ranks = boardFlipped ? [7, 6, 5, 4, 3, 2, 1, 0] : [0, 1, 2, 3, 4, 5, 6, 7];
     const files = boardFlipped ? [7, 6, 5, 4, 3, 2, 1, 0] : [0, 1, 2, 3, 4, 5, 6, 7];
+
+    // Find king check on displayed board
+    let kingSquare = null;
+    if (displayGame.in_check()) {
+        const turnColor = displayGame.turn();
+        for (let r = 0; r < 8; r++) {
+            for (let f = 0; f < 8; f++) {
+                const piece = board[r][f];
+                if (piece && piece.type === 'k' && piece.color === turnColor) {
+                    const fileChar = String.fromCharCode('a'.charCodeAt(0) + f);
+                    const rankChar = 8 - r;
+                    kingSquare = `${fileChar}${rankChar}`;
+                    break;
+                }
+            }
+            if (kingSquare) break;
+        }
+    }
+
+    // Get last move coordinates of displayed board to highlight
+    let lastMove = null;
+    const currentHist = displayGame.history({ verbose: true });
+    if (currentHist.length > 0) {
+        lastMove = currentHist[currentHist.length - 1];
+    }
 
     ranks.forEach((r, rowIndex) => {
         files.forEach((f, colIndex) => {
@@ -289,14 +605,39 @@ function renderBoard() {
             squareEl.className = `square ${isLight ? 'light' : 'dark'}`;
             squareEl.dataset.square = squareId;
 
-            if (selectedSquare === squareId) {
+            // Apply selected highlight
+            if (!isReviewing && selectedSquare === squareId) {
                 squareEl.classList.add('selected');
             }
 
-            if (selectedSquare) {
+            // Apply legal moves dots
+            if (!isReviewing && selectedSquare) {
                 const moves = game.moves({ square: selectedSquare, verbose: true });
                 if (moves.some(m => m.to === squareId)) {
                     squareEl.classList.add('highlight');
+                }
+            }
+
+            // Apply last move highlight
+            if (lastMove && (squareId === lastMove.from || squareId === lastMove.to)) {
+                if (squareId === lastMove.from) {
+                    squareEl.classList.add('last-move-from');
+                } else {
+                    squareEl.classList.add('last-move-to');
+                }
+            }
+
+            // Apply check highlight
+            if (squareId === kingSquare) {
+                squareEl.classList.add('king-check');
+            }
+
+            // Apply Hint highlight
+            if (!isReviewing && hintMove && (squareId === hintMove.from || squareId === hintMove.to)) {
+                if (squareId === hintMove.from) {
+                    squareEl.classList.add('hint-from');
+                } else {
+                    squareEl.classList.add('hint-to');
                 }
             }
 
@@ -309,49 +650,52 @@ function renderBoard() {
                 const pieceEl = document.createElement('div');
                 pieceEl.className = `piece ${colorClass}`;
                 pieceEl.innerHTML = `<i class="fa-solid ${iconClass}"></i>`;
-                pieceEl.draggable = true;
+                pieceEl.draggable = !isReviewing;
                 
-                // Drag start
-                pieceEl.addEventListener('dragstart', (e) => {
-                    // Prevent human from dragging AI pieces when AI is active
-                    if (gameModeSelect.value === 'ai' && piece.color === 'b') {
-                        e.preventDefault();
-                        return;
-                    }
-                    if (piece.color !== game.turn()) {
-                        e.preventDefault();
-                        return;
-                    }
-                    selectedSquare = squareId;
-                    e.dataTransfer.setData('text/plain', squareId);
-                    setTimeout(() => pieceEl.classList.add('dragging'), 0);
-                    renderBoard();
-                });
-                
-                pieceEl.addEventListener('dragend', () => {
-                    pieceEl.classList.remove('dragging');
-                });
+                if (!isReviewing) {
+                    pieceEl.addEventListener('dragstart', (e) => {
+                        // Block human from moving AI piece
+                        if (gameModeSelect.value === 'ai' && piece.color === 'b') {
+                            e.preventDefault();
+                            return;
+                        }
+                        if (piece.color !== game.turn()) {
+                            e.preventDefault();
+                            return;
+                        }
+                        selectedSquare = squareId;
+                        e.dataTransfer.setData('text/plain', squareId);
+                        setTimeout(() => pieceEl.classList.add('dragging'), 0);
+                        renderBoard();
+                    });
+                    
+                    pieceEl.addEventListener('dragend', () => {
+                        pieceEl.classList.remove('dragging');
+                    });
+                }
                 
                 squareEl.appendChild(pieceEl);
             }
 
-            squareEl.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                squareEl.classList.add('drag-over');
-            });
+            if (!isReviewing) {
+                squareEl.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    squareEl.classList.add('drag-over');
+                });
 
-            squareEl.addEventListener('dragleave', () => {
-                squareEl.classList.remove('drag-over');
-            });
+                squareEl.addEventListener('dragleave', () => {
+                    squareEl.classList.remove('drag-over');
+                });
 
-            squareEl.addEventListener('drop', (e) => {
-                e.preventDefault();
-                squareEl.classList.remove('drag-over');
-                const fromSquare = e.dataTransfer.getData('text/plain');
-                handleMove(fromSquare, squareId);
-            });
+                squareEl.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    squareEl.classList.remove('drag-over');
+                    const fromSquare = e.dataTransfer.getData('text/plain');
+                    handleMove(fromSquare, squareId);
+                });
 
-            squareEl.addEventListener('click', () => handleSquareClick(squareId));
+                squareEl.addEventListener('click', () => handleSquareClick(squareId));
+            }
             
             boardEl.appendChild(squareEl);
         });
@@ -360,9 +704,12 @@ function renderBoard() {
     updateStatus();
     updateCapturedPieces();
     updateHistory();
+    updateHistoryNav();
+    updateTimerDisplay();
     
-    // Trigger AI evaluation/move if it's the engine's turn
-    triggerAi();
+    if (!isReviewing) {
+        triggerAi();
+    }
 }
 
 function handleMove(from, to) {
@@ -372,25 +719,55 @@ function handleMove(from, to) {
     let move = moves.find(m => m.to === to);
 
     if (move) {
-        let moveObj = { from: from, to: to };
+        // Intercept Pawn Promotion
         if (move.flags.includes('p') || move.flags.includes('cp')) {
-            moveObj.promotion = 'q';
+            pendingPromotion = { from: from, to: to };
+            document.getElementById('promotionOverlay').classList.remove('hidden');
+            return;
         }
-        
+
+        let moveObj = { from: from, to: to };
         const res = game.move(moveObj);
         if (res) {
             playSound(res.captured ? 'capture' : 'move');
+            if (game.in_check() || game.in_checkmate()) {
+                playSound('check');
+            }
             selectedSquare = null;
-            switchActiveColor(game.turn());
+            hintMove = null; // Clear hint on move
+            applyIncrementAndSwitch();
         }
     }
     renderBoard();
 }
 
+function selectPromotion(pieceType) {
+    if (!pendingPromotion) return;
+    
+    let moveObj = {
+        from: pendingPromotion.from,
+        to: pendingPromotion.to,
+        promotion: pieceType
+    };
+    
+    const res = game.move(moveObj);
+    if (res) {
+        playSound(res.captured ? 'capture' : 'move');
+        if (game.in_check() || game.in_checkmate()) {
+            playSound('check');
+        }
+        selectedSquare = null;
+        hintMove = null;
+        applyIncrementAndSwitch();
+    }
+    
+    document.getElementById('promotionOverlay').classList.add('hidden');
+    pendingPromotion = null;
+    renderBoard();
+}
+
 function handleSquareClick(square) {
     if (game.game_over()) return;
-    
-    // Prevent human clicking for AI color
     if (gameModeSelect.value === 'ai' && game.turn() === 'b') return;
 
     if (selectedSquare) {
@@ -427,8 +804,22 @@ function updateStatus() {
         status = 'Game over, Black ran out of time.';
     } else if (game.in_checkmate()) {
         status = `Game over, ${moveColor} is in checkmate.`;
+        stopTimer();
+        // Delay slight bit to ensure board renders checkmate before modal shows
+        setTimeout(() => {
+            const winner = game.turn() === 'w' ? 'Black' : 'White';
+            declareGameOver(`${winner} Wins!`, `${winner} won by checkmate.`);
+        }, 300);
     } else if (game.in_draw()) {
         status = 'Game drawn';
+        stopTimer();
+        setTimeout(() => {
+            let reason = 'Draw';
+            if (game.in_stalemate()) reason = 'Draw by Stalemate';
+            else if (game.in_threefold_repetition()) reason = 'Draw by Threefold Repetition';
+            else if (game.insufficient_material()) reason = 'Draw by Insufficient Material';
+            declareGameOver("Game Drawn", reason);
+        }, 300);
     } else {
         status = `${moveColor} to move`;
         if (game.in_check()) {
@@ -438,19 +829,127 @@ function updateStatus() {
     statusEl.textContent = status;
 }
 
-// --- Event Listeners ---
-resetBtn.addEventListener('click', () => {
+// --- Custom Alert Dialog ---
+function showCustomAlert(message) {
+    const alertOverlay = document.createElement('div');
+    alertOverlay.className = 'modal-overlay';
+    alertOverlay.innerHTML = `
+        <div class="modal-content text-center">
+            <h2>Notice</h2>
+            <p class="modal-desc" style="font-size: 1.1rem; margin: 1.5rem 0;">${message}</p>
+            <button class="btn" id="customAlertCloseBtn">OK</button>
+        </div>
+    `;
+    document.body.appendChild(alertOverlay);
+    document.getElementById('customAlertCloseBtn').addEventListener('click', () => {
+        alertOverlay.remove();
+    });
+}
+
+function declareGameOver(title, desc) {
+    stopTimer();
+    
+    modalWinnerTitle.textContent = title;
+    modalWinnerDesc.textContent = desc;
+    
+    const moves = game.history();
+    statMoves.textContent = moves.length;
+    
+    // Format timer stats
+    statTime.textContent = `W: ${formatTime(whiteTime)} | B: ${formatTime(blackTime)}`;
+    
+    gameOverModal.classList.remove('hidden');
+    startConfetti();
+}
+
+function startNewGame() {
     game.reset();
-    resetTimers();
     selectedSquare = null;
+    hintMove = null;
+    pendingPromotion = null;
+    
+    resetTimers();
+    
+    fenHistory = [game.fen()];
+    historyIndex = 0;
+    
     evalBarEl.style.height = '50%';
+    evalScoreEl.textContent = '0.0';
+    thinkingSpinner.classList.add('hidden');
+    
+    stopConfetti();
+    gameOverModal.classList.add('hidden');
+    
     renderBoard();
     startTimer();
+}
+
+// --- Pawn Promotion Choice Event Listeners ---
+document.querySelectorAll('.promotion-choice').forEach(choice => {
+    choice.addEventListener('click', () => {
+        const pieceType = choice.dataset.piece;
+        selectPromotion(pieceType);
+    });
+});
+
+// --- Event Listeners ---
+resetBtn.addEventListener('click', () => {
+    startNewGame();
 });
 
 flipBtn.addEventListener('click', () => {
     boardFlipped = !boardFlipped;
     renderBoard();
+});
+
+hintBtn.addEventListener('click', () => {
+    if (game.game_over()) return;
+    if (awaitingHint) return;
+    
+    awaitingHint = true;
+    thinkingSpinner.classList.remove('hidden');
+    
+    engine.postMessage(`position fen ${game.fen()}`);
+    engine.postMessage('go depth 12');
+});
+
+resignBtn.addEventListener('click', () => {
+    if (game.game_over()) return;
+    
+    const turn = game.turn() === 'w' ? 'White' : 'Black';
+    const opponent = turn === 'w' ? 'Black' : 'White';
+    
+    declareGameOver(`${opponent} Wins!`, `${turn} resigned the game.`);
+});
+
+drawBtn.addEventListener('click', () => {
+    if (game.game_over()) return;
+    
+    if (gameModeSelect.value === 'ai') {
+        const history = game.history();
+        if (history.length < 16) {
+            showCustomAlert("Stockfish declined the draw. It is too early in the game.");
+            return;
+        }
+        
+        // Check current evaluation score
+        const scoreText = evalScoreEl.textContent;
+        let isBalanced = false;
+        if (scoreText) {
+            const val = parseFloat(scoreText);
+            if (!isNaN(val) && Math.abs(val) <= 1.0) {
+                isBalanced = true;
+            }
+        }
+        
+        if (isBalanced) {
+            declareGameOver("Game Drawn", "Draw by agreement with Stockfish.");
+        } else {
+            showCustomAlert("Stockfish declined the draw. The position is not balanced.");
+        }
+    } else {
+        declareGameOver("Game Drawn", "Draw by mutual agreement.");
+    }
 });
 
 gameModeSelect.addEventListener('change', (e) => {
@@ -462,8 +961,53 @@ aiDifficultySelect.addEventListener('change', () => {
     triggerAi();
 });
 
+// Theme Switcher
+const savedTheme = localStorage.getItem('cozy-chess-theme') || 'espresso';
+themeSelect.value = savedTheme;
+document.body.setAttribute('data-theme', savedTheme);
+
+themeSelect.addEventListener('change', (e) => {
+    const theme = e.target.value;
+    document.body.setAttribute('data-theme', theme);
+    localStorage.setItem('cozy-chess-theme', theme);
+});
+
+// Time Control Presets
+timeControlSelect.addEventListener('change', (e) => {
+    const val = e.target.value;
+    if (val === 'custom') {
+        customTimePanel.classList.remove('hidden');
+    } else {
+        customTimePanel.classList.add('hidden');
+        parseTimeSetting(val);
+        startNewGame();
+    }
+});
+
+document.getElementById('applyCustomTimeBtn').addEventListener('click', () => {
+    const mins = parseInt(document.getElementById('customMin').value);
+    const inc = parseInt(document.getElementById('customInc').value);
+    
+    if (isNaN(mins) || mins < 1) {
+        showCustomAlert("Please enter a valid time (minimum 1 minute).");
+        return;
+    }
+    
+    whiteTime = mins * 60;
+    blackTime = mins * 60;
+    incrementSeconds = isNaN(inc) ? 0 : inc;
+    
+    customTimePanel.classList.add('hidden');
+    startNewGame();
+});
+
+// PGN Export
 document.getElementById('exportPgnBtn').addEventListener('click', () => {
     const pgn = game.pgn();
+    if (!pgn) {
+        showCustomAlert("No moves have been played yet.");
+        return;
+    }
     const blob = new Blob([pgn], {type: 'text/plain'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -472,19 +1016,83 @@ document.getElementById('exportPgnBtn').addEventListener('click', () => {
     a.click();
 });
 
+// PGN Import Modals Actions
 document.getElementById('importPgnBtn').addEventListener('click', () => {
-    const input = prompt("Paste your PGN here:");
-    if (input) {
-        if(game.load_pgn(input)) {
-            resetTimers();
-            renderBoard();
-        } else {
-            alert("Invalid PGN format. Please check and try again.");
+    pgnInputText.value = '';
+    importPgnModal.classList.remove('hidden');
+});
+
+pgnCancelBtn.addEventListener('click', () => {
+    importPgnModal.classList.add('hidden');
+});
+
+pgnSubmitBtn.addEventListener('click', () => {
+    const pgn = pgnInputText.value.trim();
+    if (!pgn) {
+        showCustomAlert("Please paste a valid PGN string first.");
+        return;
+    }
+    
+    const tempGame = new Chess();
+    if (tempGame.load_pgn(pgn)) {
+        // Success: copy to active game
+        game.load_pgn(pgn);
+        importPgnModal.classList.add('hidden');
+        
+        // Rebuild history list of FENs
+        const moves = tempGame.history();
+        const replayer = new Chess();
+        fenHistory = [replayer.fen()];
+        for (let m of moves) {
+            replayer.move(m);
+            fenHistory.push(replayer.fen());
         }
+        
+        historyIndex = fenHistory.length - 1;
+        resetTimers();
+        renderBoard();
+        startTimer();
+    } else {
+        showCustomAlert("Invalid PGN format. Please check your notation.");
     }
 });
 
-// Boot
-updateTimerDisplay();
-startTimer();
-renderBoard();
+// GameOver Modal Actions
+modalNewGameBtn.addEventListener('click', () => {
+    startNewGame();
+});
+
+modalCloseBtn.addEventListener('click', () => {
+    gameOverModal.classList.add('hidden');
+    stopConfetti();
+});
+
+// History Navigation buttons
+document.getElementById('navFirst').addEventListener('click', () => {
+    if (fenHistory.length === 0) return;
+    historyIndex = 0;
+    renderBoard();
+});
+
+document.getElementById('navPrev').addEventListener('click', () => {
+    if (historyIndex > 0) {
+        historyIndex--;
+        renderBoard();
+    }
+});
+
+document.getElementById('navNext').addEventListener('click', () => {
+    if (historyIndex < fenHistory.length - 1) {
+        historyIndex++;
+        renderBoard();
+    }
+});
+
+document.getElementById('navLast').addEventListener('click', () => {
+    historyIndex = fenHistory.length - 1;
+    renderBoard();
+});
+
+// Boot Setup
+parseTimeSetting(timeControlSelect.value);
+startNewGame();

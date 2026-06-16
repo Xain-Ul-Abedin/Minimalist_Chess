@@ -18,16 +18,39 @@
             </header>
 
             <div class="game-controls">
-                <select id="gameMode" class="input-select">
+                <select id="themeSelect" class="input-select" title="Choose Theme">
+                    <option value="espresso">☕ Warm Espresso</option>
+                    <option value="forest">🌲 Forest Rain</option>
+                    <option value="midnight">🌌 Midnight Latte</option>
+                    <option value="autumn">🍂 Autumn Leaves</option>
+                    <option value="blossom">🌸 Cherry Blossom</option>
+                </select>
+                <select id="gameMode" class="input-select" title="Choose Game Mode">
                     <option value="human">Play Human (Local)</option>
                     <option value="ai">Play Computer</option>
                 </select>
-                <select id="aiDifficulty" class="input-select" disabled>
+                <select id="aiDifficulty" class="input-select" disabled title="AI Level">
                     <option value="0">Level 1 (Beginner)</option>
                     <option value="5">Level 5 (Intermediate)</option>
                     <option value="10">Level 10 (Expert)</option>
                     <option value="20">Level 20 (Master)</option>
                 </select>
+                <select id="timeControlSelect" class="input-select" title="Choose Time Control">
+                    <option value="300+0">5 min (Blitz)</option>
+                    <option value="180+2">3+2 (Blitz)</option>
+                    <option value="60+0">1 min (Bullet)</option>
+                    <option value="600+0">10 min (Rapid)</option>
+                    <option value="1800+0">30 min (Classical)</option>
+                    <option value="custom">Custom...</option>
+                </select>
+            </div>
+
+            <div id="customTimePanel" class="custom-time-panel hidden">
+                <div class="custom-time-inputs">
+                    <label>Min: <input type="number" id="customMin" value="5" min="1" max="180" class="input-num"></label>
+                    <label>Inc (s): <input type="number" id="customInc" value="0" min="0" max="60" class="input-num"></label>
+                    <button id="applyCustomTimeBtn" class="btn-sm">Apply</button>
+                </div>
             </div>
 
             <div class="timers">
@@ -35,7 +58,11 @@
                     <div class="timer" id="whiteTimer">5:00</div>
                     <div class="captured-pieces" id="whiteCaptured"></div>
                 </div>
-                <div class="timer-divider">vs</div>
+                <div class="timer-divider-container">
+                    <div class="timer-divider">vs</div>
+                    <div id="evalScore" class="eval-score" title="Numerical Evaluation">0.0</div>
+                    <div id="thinkingSpinner" class="thinking-spinner hidden" title="Stockfish is thinking..."><i class="fa-solid fa-brain fa-pulse"></i></div>
+                </div>
                 <div class="player-info">
                     <div class="timer" id="blackTimer">5:00</div>
                     <div class="captured-pieces" id="blackCaptured"></div>
@@ -49,12 +76,27 @@
                 </div>
                 <div class="board-container">
                     <div id="board" class="chess-board"></div>
+                    <!-- Pawn Promotion Overlay -->
+                    <div id="promotionOverlay" class="promotion-overlay hidden">
+                        <div class="promotion-box">
+                            <p>Promote Pawn To:</p>
+                            <div class="promotion-choices">
+                                <div class="promotion-choice" data-piece="q" title="Queen"><i class="fa-solid fa-chess-queen"></i></div>
+                                <div class="promotion-choice" data-piece="r" title="Rook"><i class="fa-solid fa-chess-rook"></i></div>
+                                <div class="promotion-choice" data-piece="b" title="Bishop"><i class="fa-solid fa-chess-bishop"></i></div>
+                                <div class="promotion-choice" data-piece="n" title="Knight"><i class="fa-solid fa-chess-knight"></i></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <div class="controls">
                 <button id="resetBtn" class="btn">New Game</button>
                 <button id="flipBtn" class="btn secondary">Flip Board</button>
+                <button id="hintBtn" class="btn secondary" title="Show best move hint"><i class="fa-solid fa-lightbulb"></i> Hint</button>
+                <button id="resignBtn" class="btn danger" title="Resign game"><i class="fa-solid fa-flag"></i> Resign</button>
+                <button id="drawBtn" class="btn secondary" title="Offer/Claim Draw"><i class="fa-solid fa-handshake"></i> Draw</button>
                 <button id="exportPgnBtn" class="btn secondary"><i class="fa-solid fa-download"></i> PGN</button>
                 <button id="importPgnBtn" class="btn secondary"><i class="fa-solid fa-upload"></i> PGN</button>
             </div>
@@ -62,8 +104,58 @@
 
         <div class="side-panel">
             <h2>Move History</h2>
+            <div id="historyBadge" class="history-badge hidden">Viewing History (Paused)</div>
             <div class="history-list" id="historyList">
                 <!-- Move pairs go here -->
+            </div>
+            <div class="history-nav">
+                <button id="navFirst" class="nav-btn" title="First Move"><i class="fa-solid fa-angles-left"></i></button>
+                <button id="navPrev" class="nav-btn" title="Previous Move"><i class="fa-solid fa-angle-left"></i></button>
+                <button id="navNext" class="nav-btn" title="Next Move"><i class="fa-solid fa-angle-right"></i></button>
+                <button id="navLast" class="nav-btn" title="Current Move"><i class="fa-solid fa-angles-right"></i></button>
+            </div>
+            <div class="sound-control">
+                <label for="soundSelect"><i class="fa-solid fa-volume-high"></i> Sounds:</label>
+                <select id="soundSelect" class="input-select-sm">
+                    <option value="wood">Wood Click</option>
+                    <option value="synth">Digital Synth</option>
+                    <option value="mute">Muted</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Modals -->
+    <div id="gameOverModal" class="modal-overlay hidden">
+        <div class="modal-content text-center">
+            <canvas id="confettiCanvas" class="confetti-canvas"></canvas>
+            <h2 id="modalWinnerTitle">Victory!</h2>
+            <p id="modalWinnerDesc">White wins by checkmate.</p>
+            <div class="modal-stats">
+                <div class="modal-stat">
+                    <span class="stat-label">Moves</span>
+                    <span id="statMoves" class="stat-val">0</span>
+                </div>
+                <div class="modal-stat">
+                    <span class="stat-label">Time Left</span>
+                    <span id="statTime" class="stat-val">--:--</span>
+                </div>
+            </div>
+            <div class="modal-actions-center">
+                <button id="modalNewGameBtn" class="btn">New Game</button>
+                <button id="modalCloseBtn" class="btn secondary">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="importPgnModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2>Import PGN</h2>
+            <p class="modal-desc">Paste chess PGN game notation below to load the state:</p>
+            <textarea id="pgnInputText" placeholder="1. e4 e5 2. Nf3 Nc6 ..."></textarea>
+            <div class="modal-actions">
+                <button id="pgnSubmitBtn" class="btn">Load Game</button>
+                <button id="pgnCancelBtn" class="btn secondary">Cancel</button>
             </div>
         </div>
     </div>
