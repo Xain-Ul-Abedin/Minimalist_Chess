@@ -19,6 +19,14 @@ const timeControlSelect = document.getElementById('timeControlSelect');
 const customTimePanel = document.getElementById('customTimePanel');
 const soundSelect = document.getElementById('soundSelect');
 const historyBadge = document.getElementById('historyBadge');
+const musicToggleBtn = document.getElementById('musicToggleBtn');
+
+// Procedural Ambient Music States
+let audioCtx = null;
+let musicPlaying = false;
+let chordInterval = null;
+let ambientNoiseSource = null;
+let currentChordIndex = 0;
 
 // Custom modals elements
 const gameOverModal = document.getElementById('gameOverModal');
@@ -95,9 +103,7 @@ let currentLessonKey = 'sicilian';
 let currentLessonStep = 0;
 let menuMode = 'play'; // 'play' or 'teach'
 
-// Audio Context for sound effects
-const AudioContext = window.AudioContext || window.webkitAudioContext;
-const audioCtx = new AudioContext();
+// Audio Context for sound effects (initialized lazily)
 
 // --- Theme-Based Dynamic Pieces ---
 const themeIcons = {
@@ -178,6 +184,7 @@ const openingLessons = {
 
 // --- Sound Synthesizers ---
 function playWoodSound(type) {
+    initAudioContext();
     if (audioCtx.state === 'suspended') audioCtx.resume();
     const osc = audioCtx.createOscillator();
     const gainNode = audioCtx.createGain();
@@ -226,6 +233,7 @@ function playWoodSound(type) {
 }
 
 function playSynthSound(type) {
+    initAudioContext();
     if (audioCtx.state === 'suspended') audioCtx.resume();
     const osc = audioCtx.createOscillator();
     const gainNode = audioCtx.createGain();
@@ -733,6 +741,49 @@ function exitTeachMode() {
     mainMenu.classList.remove('hidden');
 }
 
+// --- Find Endangered Squares (for Sweat Drops) ---
+function getEndangeredSquares() {
+    const endangered = new Set();
+    if (teachModeActive) return endangered;
+
+    const fen = game.fen();
+    const parts = fen.split(' ');
+    const activeColor = parts[1];
+    const opponentColor = activeColor === 'w' ? 'b' : 'w';
+    parts[1] = opponentColor;
+    const opponentFen = parts.join(' ');
+
+    const temp = new Chess();
+    const success = temp.load(opponentFen);
+    if (success) {
+        const opponentMoves = temp.moves({ verbose: true });
+        opponentMoves.forEach(m => {
+            if (m.captured) {
+                endangered.add(m.to);
+            }
+        });
+    }
+
+    // Add King square if in check
+    if (game.in_check()) {
+        const turnColor = game.turn();
+        const board = game.board();
+        for (let r = 0; r < 8; r++) {
+            for (let f = 0; f < 8; f++) {
+                const piece = board[r][f];
+                if (piece && piece.type === 'k' && piece.color === turnColor) {
+                    const fileChar = String.fromCharCode('a'.charCodeAt(0) + f);
+                    const rankChar = 8 - r;
+                    endangered.add(`${fileChar}${rankChar}`);
+                    break;
+                }
+            }
+        }
+    }
+
+    return endangered;
+}
+
 // --- Board Renderer ---
 function renderBoard() {
     boardEl.innerHTML = '';
@@ -740,6 +791,7 @@ function renderBoard() {
     const isReviewing = historyIndex < fenHistory.length - 1 && !teachModeActive;
     const displayGame = isReviewing ? new Chess(fenHistory[historyIndex]) : game;
     const board = displayGame.board(); 
+    const endangeredSquares = getEndangeredSquares();
     
     if (isReviewing) {
         historyBadge.classList.remove('hidden');
@@ -853,6 +905,20 @@ function renderBoard() {
                 pieceEl.className = `piece ${colorClass}`;
                 pieceEl.innerHTML = `<i class="fa-solid ${iconClass}"></i>`;
                 pieceEl.draggable = !isReviewing;
+                
+                // Micro bounce animation for just-moved piece
+                if (lastMove && squareId === lastMove.to) {
+                    pieceEl.classList.add('bounce-in');
+                }
+
+                // Add sweat drop icon if piece is in danger
+                if (endangeredSquares.has(squareId)) {
+                    squareEl.classList.add('endangered');
+                    const sweatEl = document.createElement('div');
+                    sweatEl.className = 'sweat-drop';
+                    sweatEl.innerHTML = '<i class="fa-solid fa-droplet"></i>';
+                    pieceEl.appendChild(sweatEl);
+                }
                 
                 if (!isReviewing) {
                     pieceEl.addEventListener('dragstart', (e) => {
@@ -1206,6 +1272,9 @@ menuThemeSelect.addEventListener('change', (e) => {
     themeSelect.value = theme;
     localStorage.setItem('cozy-chess-theme', theme);
     renderBoard(); // Update piece icons
+    if (musicPlaying) {
+        startMusic();
+    }
 });
 
 themeSelect.addEventListener('change', (e) => {
@@ -1214,6 +1283,9 @@ themeSelect.addEventListener('change', (e) => {
     menuThemeSelect.value = theme;
     localStorage.setItem('cozy-chess-theme', theme);
     renderBoard(); // Update piece icons
+    if (musicPlaying) {
+        startMusic();
+    }
 });
 
 // Back to menu
@@ -1563,6 +1635,184 @@ document.getElementById('navNext').addEventListener('click', () => {
 document.getElementById('navLast').addEventListener('click', () => {
     historyIndex = fenHistory.length - 1;
     renderBoard();
+});
+
+// --- Procedural Ambient Music Engine ---
+const themeChords = {
+    espresso: [
+        [174.61, 220.00, 261.63, 329.63], // F3, A3, C4, E4 (Fmaj7)
+        [196.00, 246.94, 293.66, 349.23], // G3, B3, D4, F4 (G7)
+        [261.63, 329.63, 392.00, 493.88], // C4, E4, G4, B4 (Cmaj7)
+        [220.00, 261.63, 329.63, 392.00]  // A3, C4, E4, G4 (Am7)
+    ],
+    forest: [
+        [130.81, 196.00, 261.63, 329.63], // C3, G3, C4, E4
+        [174.61, 220.00, 261.63, 349.23], // F3, A3, C4, F4
+        [196.00, 246.94, 293.66, 329.63], // G3, B3, D4, E4
+        [220.00, 329.63, 440.00, 523.25]  // A3, E4, A4, C5
+    ],
+    midnight: [
+        [146.83, 220.00, 261.63, 329.63, 349.23], // D3, A3, C4, E4, F4 (Dm9)
+        [196.00, 349.23, 493.88, 659.25],         // G3, F4, B4, E5 (G13)
+        [130.81, 196.00, 246.94, 293.66, 329.63], // C3, G3, B3, D4, E4 (Cmaj9)
+        [220.00, 392.00, 554.37, 659.25, 987.77]  // A3, G4, C#5, E5, B5 (A9)
+    ],
+    autumn: [
+        [220.00, 329.63, 392.00, 523.25], // A3, E4, G4, C5 (Am7)
+        [146.83, 185.00, 261.63, 329.63], // D3, F#3, C4, E4 (D7)
+        [196.00, 293.66, 369.99, 493.88], // G3, D4, F#4, B4 (Gmaj7)
+        [130.81, 329.63, 392.00, 493.88]  // C3, E4, G4, B4 (Cmaj7)
+    ],
+    blossom: [
+        [174.61, 261.63, 329.63, 392.00, 440.00], // F3, C4, E4, G4, A4 (Fmaj9)
+        [196.00, 293.66, 349.23, 440.00],         // G3, D4, F4, A4 (G9)
+        [164.81, 246.94, 293.66, 392.00],         // E3, B3, D4, G4 (Em7)
+        [220.00, 329.63, 392.00, 493.88, 523.25]  // A3, E4, G4, B4, C5 (Am9)
+    ]
+};
+
+function initAudioContext() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+}
+
+function playAmbientPad(theme) {
+    if (!audioCtx || audioCtx.state === 'suspended') return;
+
+    const chords = themeChords[theme] || themeChords.espresso;
+    const notes = chords[currentChordIndex];
+    currentChordIndex = (currentChordIndex + 1) % chords.length;
+
+    const now = audioCtx.currentTime;
+    const duration = 5.0;
+
+    const chordGain = audioCtx.createGain();
+    chordGain.gain.setValueAtTime(0, now);
+    chordGain.gain.linearRampToValueAtTime(0.04, now + 1.5);
+    chordGain.gain.setValueAtTime(0.04, now + duration - 2.0);
+    chordGain.gain.linearRampToValueAtTime(0, now + duration);
+
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(theme === 'midnight' ? 300 : 500, now);
+
+    chordGain.connect(filter);
+    filter.connect(audioCtx.destination);
+
+    notes.forEach((freq, index) => {
+        const osc = audioCtx.createOscillator();
+        osc.type = (theme === 'midnight' || theme === 'forest') ? 'triangle' : 'sine';
+        osc.frequency.setValueAtTime(freq, now);
+        osc.detune.setValueAtTime((index % 2 === 0 ? 4 : -4), now);
+
+        osc.connect(chordGain);
+        osc.start(now);
+        osc.stop(now + duration);
+    });
+}
+
+function startAmbientSound(theme) {
+    if (!audioCtx) return;
+    const now = audioCtx.currentTime;
+
+    if (ambientNoiseSource) {
+        try { ambientNoiseSource.stop(); } catch(e){}
+        ambientNoiseSource = null;
+    }
+
+    if (theme === 'forest' || theme === 'autumn' || theme === 'espresso') {
+        const bufferSize = audioCtx.sampleRate * 2.0;
+        const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            output[i] = Math.random() * 2 - 1;
+        }
+
+        const noise = audioCtx.createBufferSource();
+        noise.buffer = noiseBuffer;
+        noise.loop = true;
+
+        const noiseFilter = audioCtx.createBiquadFilter();
+        const noiseGain = audioCtx.createGain();
+
+        if (theme === 'forest') {
+            noiseFilter.type = 'bandpass';
+            noiseFilter.frequency.setValueAtTime(1000, now);
+            noiseFilter.Q.setValueAtTime(1.0, now);
+            noiseGain.gain.setValueAtTime(0.015, now);
+        } else if (theme === 'autumn') {
+            noiseFilter.type = 'lowpass';
+            noiseFilter.frequency.setValueAtTime(350, now);
+            noiseGain.gain.setValueAtTime(0.012, now);
+            
+            const lfo = audioCtx.createOscillator();
+            const lfoGain = audioCtx.createGain();
+            lfo.frequency.setValueAtTime(0.08, now);
+            lfoGain.gain.setValueAtTime(120, now);
+            lfo.connect(lfoGain);
+            lfoGain.connect(noiseFilter.frequency);
+            lfo.start(now);
+        } else if (theme === 'espresso') {
+            noiseFilter.type = 'highpass';
+            noiseFilter.frequency.setValueAtTime(8000, now);
+            noiseGain.gain.setValueAtTime(0.005, now);
+        }
+
+        noise.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(audioCtx.destination);
+        noise.start(now);
+        ambientNoiseSource = noise;
+    }
+}
+
+function startMusic() {
+    initAudioContext();
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+    
+    musicPlaying = true;
+    const activeTheme = document.body.getAttribute('data-theme') || 'espresso';
+    
+    currentChordIndex = 0;
+    playAmbientPad(activeTheme);
+    startAmbientSound(activeTheme);
+
+    if (chordInterval) clearInterval(chordInterval);
+    chordInterval = setInterval(() => {
+        playAmbientPad(activeTheme);
+    }, 4500);
+
+    musicToggleBtn.textContent = 'On';
+    musicToggleBtn.classList.add('playing');
+}
+
+function stopMusic() {
+    musicPlaying = false;
+    if (chordInterval) {
+        clearInterval(chordInterval);
+        chordInterval = null;
+    }
+    if (ambientNoiseSource) {
+        try { ambientNoiseSource.stop(); } catch(e){}
+        ambientNoiseSource = null;
+    }
+    musicToggleBtn.textContent = 'Off';
+    musicToggleBtn.classList.remove('playing');
+}
+
+function toggleMusic() {
+    if (musicPlaying) {
+        stopMusic();
+    } else {
+        startMusic();
+    }
+}
+
+musicToggleBtn.addEventListener('click', () => {
+    toggleMusic();
 });
 
 // Boot Setup
